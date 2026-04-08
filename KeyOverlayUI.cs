@@ -19,6 +19,7 @@ namespace KeyOverlay
         private const string ICON_JUMP = "●";  // Jump icon
         private const string ICON_THROW = "◆"; // Throw icon
         private const string ICON_GRAB = "■";  // Grab icon
+        private const string ICON_PICKUP = "▲"; // PickUp icon (same as up arrow)
         
         public KeyOverlayUI(ConfigWrapper config, InputMonitor input)
         {
@@ -67,20 +68,20 @@ namespace KeyOverlay
                 DrawKey(mx + 2 * (keySize + spacing), my + keySize + spacing, keySize, borderWidth, "Right", ARROW_RIGHT);
             }
             
-            // Action keys - Jump right of W, Throw right of D, Grab right of Throw
+            // Action keys - Jump right of W, Grab above Throw, Throw right of D
             if (_config.ShowActionKeys && _config.ShowKeyboard)
             {
                 // Jump - right of W (top row)
                 float jumpX = x + 2 * (keySize + spacing);
                 DrawKey(jumpX, y, keySize, borderWidth, "Jump", ICON_JUMP);
                 
+                // Grab - above Throw (top row, same column as Throw)
+                float grabX = x + 3 * (keySize + spacing);
+                DrawKey(grabX, y, keySize, borderWidth, "Grab", ICON_GRAB);
+                
                 // Throw - right of D (bottom row)
                 float throwX = x + 3 * (keySize + spacing);
                 DrawKey(throwX, y + keySize + spacing, keySize, borderWidth, "Throw", ICON_THROW);
-                
-                // Grab - right of Throw
-                float grabX = throwX + keySize + spacing;
-                DrawKey(grabX, y + keySize + spacing, keySize, borderWidth, "Grab", ICON_GRAB);
             }
             
             // Combo stats
@@ -88,8 +89,8 @@ namespace KeyOverlay
             {
                 float statsY = y + 2 * (keySize + spacing) + spacing / 2;
                 GUI.color = new Color(1, 1, 1, _config.Opacity);
-                GUI.Label(new Rect(x, statsY, 250 * s, 16 * s), 
-                    $"JMP:{_input.JumpCombo} THR:{_input.ThrowCombo} GRB:{_input.GrabCombo}", _statsStyle);
+                GUI.Label(new Rect(x, statsY, 300 * s, 16 * s), 
+                    $"CPS:{_input.CPS:F1} | JMP:{_input.JumpCombo} THR:{_input.ThrowCombo} GRB:{_input.GrabCombo}", _statsStyle);
                 GUI.color = Color.white;
             }
             

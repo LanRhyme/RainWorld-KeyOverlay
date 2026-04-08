@@ -12,8 +12,10 @@ namespace KeyOverlay
         public int GrabCombo { get; private set; }
         public int TotalInputs { get; private set; }
         public bool IsGamepadActive { get; private set; }
+        public float CPS { get; private set; } // Clicks Per Second
         
         private float _lastInputTime;
+        private List<float> _inputTimes = new List<float>(); // For CPS calculation
         
         public InputMonitor()
         {
@@ -40,6 +42,11 @@ namespace KeyOverlay
                 
                 // Check Unity Input
                 UpdateInputsCombined();
+                
+                // Calculate CPS (inputs per second over last 1 second)
+                float now = Time.time;
+                _inputTimes.RemoveAll(t => now - t > 1f);
+                CPS = _inputTimes.Count;
                 
                 // Combo reset
                 if (Time.time - _lastInputTime > 0.5f)
@@ -109,6 +116,7 @@ namespace KeyOverlay
             {
                 TotalInputs++;
                 _lastInputTime = Time.time;
+                _inputTimes.Add(Time.time); // For CPS calculation
                 
                 if (name == "Jump" || name == "GP_A") JumpCombo++;
                 else if (name == "Throw" || name == "GP_B") ThrowCombo++;
@@ -127,6 +135,8 @@ namespace KeyOverlay
             ThrowCombo = 0;
             GrabCombo = 0;
             TotalInputs = 0;
+            _inputTimes.Clear();
+            CPS = 0;
         }
     }
     
