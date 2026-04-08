@@ -67,6 +67,17 @@
       <HintPath>D:\Program Files\steam\steamapps\common\Rain World\RainWorld_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    
+    <!-- Reference to Rewired input system (Rain World uses this) -->
+    <Reference Include="Rewired_Core">
+      <HintPath>D:\Program Files\steam\steamapps\common\Rain World\RainWorld_Data\Managed\Rewired_Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
+    <Reference Include="Rewired.Runtime">
+      <HintPath>D:\Program Files\steam\steamapps\common\Rain World\RainWorld_Data\Managed\Rewired.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <!-- Post-build copy to Rain World mods directory -->

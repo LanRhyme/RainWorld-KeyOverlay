@@ -26,6 +26,18 @@ namespace KeyOverlay
         internal ConfigEntry<bool> ConfigShowMovementKeys;
         internal ConfigEntry<bool> ConfigShowActionKeys;
         
+        // Color settings
+        internal ConfigEntry<Color> ConfigKeyColorNormal;
+        internal ConfigEntry<Color> ConfigKeyColorPressed;
+        internal ConfigEntry<Color> ConfigBorderColor;
+        internal ConfigEntry<float> ConfigBorderOpacity;
+        internal ConfigEntry<float> ConfigFillOpacity;
+        internal ConfigEntry<float> ConfigPressedEffectOpacity;
+        
+        // Style settings
+        internal ConfigEntry<int> ConfigFontSize;
+        internal ConfigEntry<float> ConfigBorderWidth;
+        
         private InputMonitor _inputMonitor;
         private KeyOverlayUI _ui;
         private PauseMenuIntegration _pauseMenu;
@@ -67,6 +79,14 @@ namespace KeyOverlay
             ConfigShowKeyNames = Config.Bind("Features", "ShowKeyNames", true);
             ConfigShowMovementKeys = Config.Bind("Keys", "MovementKeys", true);
             ConfigShowActionKeys = Config.Bind("Keys", "ActionKeys", true);
+            
+            // Color settings - default pixel-art style colors
+            ConfigKeyColorNormal = Config.Bind("Colors", "KeyColorNormal", new Color(0.2f, 0.2f, 0.25f));
+            ConfigKeyColorPressed = Config.Bind("Colors", "KeyColorPressed", new Color(0.95f, 0.75f, 0.25f));
+            ConfigBorderColor = Config.Bind("Colors", "BorderColor", new Color(0.1f, 0.1f, 0.12f));
+            ConfigBorderOpacity = Config.Bind("Colors", "BorderOpacity", 0.9f);
+            ConfigFillOpacity = Config.Bind("Colors", "FillOpacity", 0.7f);
+            ConfigPressedEffectOpacity = Config.Bind("Colors", "PressedEffectOpacity", 1.0f);
         }
         
         private void Update()
@@ -123,6 +143,14 @@ namespace KeyOverlay
         public bool ShowMovementKeys => p?.ConfigShowMovementKeys?.Value ?? true;
         public bool ShowActionKeys => p?.ConfigShowActionKeys?.Value ?? true;
         
+        // Color properties
+        public Color KeyColorNormal => p?.ConfigKeyColorNormal?.Value ?? new Color(0.2f, 0.2f, 0.25f);
+        public Color KeyColorPressed => p?.ConfigKeyColorPressed?.Value ?? new Color(0.95f, 0.75f, 0.25f);
+        public Color BorderColor => p?.ConfigBorderColor?.Value ?? new Color(0.1f, 0.1f, 0.12f);
+        public float BorderOpacity => p?.ConfigBorderOpacity?.Value ?? 0.9f;
+        public float FillOpacity => p?.ConfigFillOpacity?.Value ?? 0.7f;
+        public float PressedEffectOpacity => p?.ConfigPressedEffectOpacity?.Value ?? 1.0f;
+        
         public ConfigWrapper(KeyOverlayPlugin plugin) => p = plugin;
         
         public void SetPanelX(float v) { if (p?.ConfigPanelX != null) p.ConfigPanelX.Value = v; }
@@ -135,6 +163,15 @@ namespace KeyOverlay
         public void SetShowKeyNames(bool v) { if (p?.ConfigShowKeyNames != null) p.ConfigShowKeyNames.Value = v; }
         public void SetShowMovementKeys(bool v) { if (p?.ConfigShowMovementKeys != null) p.ConfigShowMovementKeys.Value = v; }
         public void SetShowActionKeys(bool v) { if (p?.ConfigShowActionKeys != null) p.ConfigShowActionKeys.Value = v; }
+        
+        // Color setters
+        public void SetKeyColorNormal(Color v) { if (p?.ConfigKeyColorNormal != null) p.ConfigKeyColorNormal.Value = v; }
+        public void SetKeyColorPressed(Color v) { if (p?.ConfigKeyColorPressed != null) p.ConfigKeyColorPressed.Value = v; }
+        public void SetBorderColor(Color v) { if (p?.ConfigBorderColor != null) p.ConfigBorderColor.Value = v; }
+        public void SetBorderOpacity(float v) { if (p?.ConfigBorderOpacity != null) p.ConfigBorderOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
+        public void SetFillOpacity(float v) { if (p?.ConfigFillOpacity != null) p.ConfigFillOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
+        public void SetPressedEffectOpacity(float v) { if (p?.ConfigPressedEffectOpacity != null) p.ConfigPressedEffectOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
+        
         public void Save() => p?.Config?.Save();
     }
 }
