@@ -9,11 +9,17 @@ namespace KeyOverlay
         private InputMonitor _input;
         public bool IsMenuActive { get; private set; }
         private int _sel = 0;
-        private int _colorPage = 0; // 0: main, 1: colors
+        private int _page = 0; // 0: main, 1: colors, 2: keybindings
+        
+        // Key binding states
+        private bool _waitingForKey = false;      // Step 1: waiting for user to press a key
+        private bool _confirmingKey = false;      // Step 2: waiting for Enter to confirm
+        private int _currentBindingIndex = -1;
+        private KeyCode _pendingKey = KeyCode.None; // The key user pressed, waiting for confirmation
         
         private readonly string[] _mainOpts = {
-            "Scale", "Opacity", "Keyboard", "Gamepad", "Stats", "Names", "Movement", "Actions",
-            "Color Settings...", "Reset Pos", "Reset Stats"
+            "Scale", "Opacity", "Font Size", "Border Width", "Keyboard", "Gamepad", "Stats", "Names", "Movement", "Actions",
+            "Color Settings...", "Key Bindings...", "Reset Pos", "Reset Stats"
         };
         
         private readonly string[] _colorOpts = {
@@ -21,6 +27,11 @@ namespace KeyOverlay
             "Pressed Color R", "Pressed Color G", "Pressed Color B",
             "Border Color R", "Border Color G", "Border Color B",
             "Border Opacity", "Fill Opacity", "Pressed Effect Opacity",
+            "Back to Main..."
+        };
+        
+        private readonly string[] _keyBindOpts = {
+            "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab",
             "Back to Main..."
         };
         
@@ -33,24 +44,63 @@ namespace KeyOverlay
         {
             if (!IsMenuActive) return;
             
-            if (_colorPage == 0)
+            if (_waitingForKey)
             {
-                DrawMainMenu();
-            }
-            else
-            {
-                DrawColorMenu();
+                DrawWaitingForKey();
+                HandleKeyBindInput();
+                return;
             }
             
+            if (_confirmingKey)
+            {
+                DrawConfirmingKey();
+                HandleConfirmInput();
+                return;
+            }
+            
+            if (_page == 0) DrawMainMenu();
+            else if (_page == 1) DrawColorMenu();
+            else if (_page == 2) DrawKeyBindMenu();
+            
             HandleInput();
+        }
+        
+        private void DrawWaitingForKey()
+        {
+            float cx = Screen.width / 2 - 150;
+            float cy = Screen.height / 2 - 60;
+            
+            GUI.Box(new Rect(cx, cy, 300, 120), "KEY BINDING");
+            
+            var style = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
+            GUI.Label(new Rect(cx, cy + 35, 300, 25), $"Press new key for {_keyBindOpts[_currentBindingIndex]}", style);
+            
+            var hintStyle = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.6f, 0.6f, 0.6f) } };
+            GUI.Label(new Rect(cx, cy + 65, 300, 25), "Press any key...", hintStyle);
+            GUI.Label(new Rect(cx, cy + 85, 300, 25), "Esc: Cancel", hintStyle);
+        }
+        
+        private void DrawConfirmingKey()
+        {
+            float cx = Screen.width / 2 - 150;
+            float cy = Screen.height / 2 - 60;
+            
+            GUI.Box(new Rect(cx, cy, 300, 120), "CONFIRM BINDING");
+            
+            var style = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
+            GUI.Label(new Rect(cx, cy + 35, 300, 25), $"Bind {_keyBindOpts[_currentBindingIndex]} to: {_pendingKey}", style);
+            
+            var hintStyle = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.6f, 0.6f, 0.6f) } };
+            GUI.Label(new Rect(cx, cy + 65, 300, 25), "Enter: Confirm | Esc: Cancel", hintStyle);
+            GUI.Label(new Rect(cx, cy + 85, 300, 25), "Press other key to change", hintStyle);
         }
         
         private void DrawMainMenu()
         {
             float cx = Screen.width / 2 - 150;
-            float cy = Screen.height / 2 - 220;
+            float cy = Screen.height / 2 - 250;
             
-            GUI.Box(new Rect(cx, cy, 300, 450), "KEY OVERLAY SETTINGS");
+            GUI.Box(new Rect(cx, cy, 300, 540), "KEY OVERLAY SETTINGS");
             
             var style = new GUIStyle { fontSize = 14, normal = { textColor = Color.white } };
             var selStyle = new GUIStyle { fontSize = 14, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
@@ -62,12 +112,14 @@ namespace KeyOverlay
                 
                 if (i == 0) txt += $": {_config.Scale:F1}";
                 else if (i == 1) txt += $": {_config.Opacity:F1}";
-                else if (i >= 2 && i <= 7) txt += GetToggle(i);
+                else if (i == 2) txt += $": {_config.FontSize}";
+                else if (i == 3) txt += $": {_config.BorderWidth:F1}";
+                else if (i >= 4 && i <= 9) txt += GetToggle(i);
                 
                 GUI.Label(new Rect(cx + 30, y, 200, 25), (i == _sel ? "> " : "  ") + txt, i == _sel ? selStyle : style);
             }
             
-            GUI.Label(new Rect(cx, cy + 420, 300, 25), "F1:Close | Arrows:Navigate | Enter:Toggle");
+            GUI.Label(new Rect(cx, cy + 500, 300, 25), "F1:Close | Arrows:Navigate | Enter:Toggle");
         }
         
         private void DrawColorMenu()
@@ -113,6 +165,184 @@ namespace KeyOverlay
             GUI.color = Color.white;
         }
         
+        private void DrawKeyBindMenu()
+        {
+            float cx = Screen.width / 2 - 150;
+            float cy = Screen.height / 2 - 150;
+            
+            GUI.Box(new Rect(cx, cy, 300, 270), "KEY BINDINGS");
+            
+            var style = new GUIStyle { fontSize = 14, normal = { textColor = Color.white } };
+            var selStyle = new GUIStyle { fontSize = 14, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
+            
+            for (int i = 0; i < _keyBindOpts.Length; i++)
+            {
+                float y = cy + 30 + i * 30;
+                string txt = _keyBindOpts[i];
+                
+                if (i < 7) txt += $": {GetKeyBindingName(i)}";
+                
+                GUI.Label(new Rect(cx + 30, y, 200, 25), (i == _sel ? "> " : "  ") + txt, i == _sel ? selStyle : style);
+            }
+            
+            GUI.Label(new Rect(cx, cy + 240, 300, 25), "Enter:Change | Esc:Back");
+        }
+        
+        private string GetKeyBindingName(int i)
+        {
+            switch (i)
+            {
+                case 0: return _config.KeyUp.ToString();
+                case 1: return _config.KeyDown.ToString();
+                case 2: return _config.KeyLeft.ToString();
+                case 3: return _config.KeyRight.ToString();
+                case 4: return _config.KeyJump.ToString();
+                case 5: return _config.KeyThrow.ToString();
+                case 6: return _config.KeyGrab.ToString();
+                default: return "";
+            }
+        }
+        
+        private void HandleKeyBindInput()
+        {
+            var e = Event.current;
+            if (e.type != EventType.KeyDown) return;
+            
+            // Cancel with Escape
+            if (e.keyCode == KeyCode.Escape)
+            {
+                _waitingForKey = false;
+                _confirmingKey = false;
+                _currentBindingIndex = -1;
+                _pendingKey = KeyCode.None;
+                e.Use();
+                return;
+            }
+            
+            // Ignore navigation keys
+            if (e.keyCode == KeyCode.UpArrow || e.keyCode == KeyCode.DownArrow ||
+                e.keyCode == KeyCode.LeftArrow || e.keyCode == KeyCode.RightArrow ||
+                e.keyCode == KeyCode.Return)
+            {
+                return;
+            }
+            
+            // Get the key pressed
+            KeyCode key = e.keyCode;
+            if (key == KeyCode.None)
+            {
+                if (e.character != '\0')
+                {
+                    key = CharToKeyCode(e.character);
+                }
+                if (key == KeyCode.None) return;
+            }
+            
+            // Store the key and transition to confirming state
+            _pendingKey = key;
+            _waitingForKey = false;
+            _confirmingKey = true;
+            e.Use();
+        }
+        
+        private void HandleConfirmInput()
+        {
+            var e = Event.current;
+            if (e.type != EventType.KeyDown) return;
+            
+            // Cancel with Escape
+            if (e.keyCode == KeyCode.Escape)
+            {
+                _confirmingKey = false;
+                _waitingForKey = false;
+                _currentBindingIndex = -1;
+                _pendingKey = KeyCode.None;
+                e.Use();
+                return;
+            }
+            
+            // Confirm with Enter
+            if (e.keyCode == KeyCode.Return)
+            {
+                SetKeyBinding(_currentBindingIndex, _pendingKey);
+                _confirmingKey = false;
+                _currentBindingIndex = -1;
+                _pendingKey = KeyCode.None;
+                _config.Save();
+                e.Use();
+                return;
+            }
+            
+            // Change key - press another key
+            if (e.keyCode != KeyCode.None && e.keyCode != KeyCode.UpArrow && 
+                e.keyCode != KeyCode.DownArrow && e.keyCode != KeyCode.LeftArrow && 
+                e.keyCode != KeyCode.RightArrow)
+            {
+                _pendingKey = e.keyCode;
+                e.Use();
+                return;
+            }
+            
+            // Character key
+            if (e.keyCode == KeyCode.None && e.character != '\0')
+            {
+                KeyCode key = CharToKeyCode(e.character);
+                if (key != KeyCode.None)
+                {
+                    _pendingKey = key;
+                    e.Use();
+                }
+            }
+        }
+        
+        private KeyCode CharToKeyCode(char c)
+        {
+            // Convert character to KeyCode
+            c = char.ToUpper(c);
+            
+            // Letters
+            if (c >= 'A' && c <= 'Z')
+                return (KeyCode)((int)KeyCode.A + (c - 'A'));
+            
+            // Numbers
+            if (c >= '0' && c <= '9')
+                return (KeyCode)((int)KeyCode.Alpha0 + (c - '0'));
+            
+            // Special keys
+            switch (c)
+            {
+                case ' ': return KeyCode.Space;
+                case '\n': return KeyCode.Return;
+                case '\t': return KeyCode.Tab;
+                case '-': return KeyCode.Minus;
+                case '=': return KeyCode.Equals;
+                case '[': return KeyCode.LeftBracket;
+                case ']': return KeyCode.RightBracket;
+                case '\\': return KeyCode.Backslash;
+                case ';': return KeyCode.Semicolon;
+                case '\'': return KeyCode.Quote;
+                case ',': return KeyCode.Comma;
+                case '.': return KeyCode.Period;
+                case '/': return KeyCode.Slash;
+            }
+            
+            return KeyCode.None;
+        }
+        
+        private void SetKeyBinding(int index, KeyCode key)
+        {
+            switch (index)
+            {
+                case 0: _config.SetKeyUp(key); break;
+                case 1: _config.SetKeyDown(key); break;
+                case 2: _config.SetKeyLeft(key); break;
+                case 3: _config.SetKeyRight(key); break;
+                case 4: _config.SetKeyJump(key); break;
+                case 5: _config.SetKeyThrow(key); break;
+                case 6: _config.SetKeyGrab(key); break;
+            }
+        }
+        
         private float GetColorValue(int i)
         {
             switch (i)
@@ -138,12 +368,12 @@ namespace KeyOverlay
             bool v = false;
             switch (i)
             {
-                case 2: v = _config.ShowKeyboard; break;
-                case 3: v = _config.ShowGamepad; break;
-                case 4: v = _config.ShowComboStats; break;
-                case 5: v = _config.ShowKeyNames; break;
-                case 6: v = _config.ShowMovementKeys; break;
-                case 7: v = _config.ShowActionKeys; break;
+                case 4: v = _config.ShowKeyboard; break;
+                case 5: v = _config.ShowGamepad; break;
+                case 6: v = _config.ShowComboStats; break;
+                case 7: v = _config.ShowKeyNames; break;
+                case 8: v = _config.ShowMovementKeys; break;
+                case 9: v = _config.ShowActionKeys; break;
             }
             return $": {(v ? "ON" : "OFF")}";
         }
@@ -162,18 +392,22 @@ namespace KeyOverlay
         
         private int GetOptsLength()
         {
-            return _colorPage == 0 ? _mainOpts.Length : _colorOpts.Length;
+            if (_page == 0) return _mainOpts.Length;
+            if (_page == 1) return _colorOpts.Length;
+            return _keyBindOpts.Length;
         }
         
         private void Adjust(int dir)
         {
-            if (_colorPage == 0)
+            if (_page == 0)
             {
                 if (_sel == 0) _config.SetScale(_config.Scale + dir * 0.1f);
                 else if (_sel == 1) _config.SetOpacity(_config.Opacity + dir * 0.1f);
-                else if (_sel >= 2 && _sel <= 7) Toggle(_sel);
+                else if (_sel == 2) _config.SetFontSize(_config.FontSize + dir);
+                else if (_sel == 3) _config.SetBorderWidth(_config.BorderWidth + dir * 0.5f);
+                else if (_sel >= 4 && _sel <= 9) Toggle(_sel);
             }
-            else
+            else if (_page == 1)
             {
                 AdjustColorValue(_sel, dir * 0.05f);
             }
@@ -205,46 +439,64 @@ namespace KeyOverlay
         {
             switch (i)
             {
-                case 2: _config.SetShowKeyboard(!_config.ShowKeyboard); break;
-                case 3: _config.SetShowGamepad(!_config.ShowGamepad); break;
-                case 4: _config.SetShowComboStats(!_config.ShowComboStats); break;
-                case 5: _config.SetShowKeyNames(!_config.ShowKeyNames); break;
-                case 6: _config.SetShowMovementKeys(!_config.ShowMovementKeys); break;
-                case 7: _config.SetShowActionKeys(!_config.ShowActionKeys); break;
+                case 4: _config.SetShowKeyboard(!_config.ShowKeyboard); break;
+                case 5: _config.SetShowGamepad(!_config.ShowGamepad); break;
+                case 6: _config.SetShowComboStats(!_config.ShowComboStats); break;
+                case 7: _config.SetShowKeyNames(!_config.ShowKeyNames); break;
+                case 8: _config.SetShowMovementKeys(!_config.ShowMovementKeys); break;
+                case 9: _config.SetShowActionKeys(!_config.ShowActionKeys); break;
             }
         }
         
         private void Apply()
         {
-            if (_colorPage == 0)
+            if (_page == 0) // Main menu
             {
-                if (_sel == 8) // Color Settings
+                if (_sel == 10) // Color Settings
                 {
-                    _colorPage = 1;
+                    _page = 1;
                     _sel = 0;
                 }
-                else if (_sel == 9) // Reset Pos
+                else if (_sel == 11) // Key Bindings
+                {
+                    _page = 2;
+                    _sel = 0;
+                }
+                else if (_sel == 12) // Reset Pos
                 {
                     _config.SetPanelX(200f);
                     _config.SetPanelY(100f);
                 }
-                else if (_sel == 10) // Reset Stats
+                else if (_sel == 13) // Reset Stats
                 {
                     _input.ResetStats();
                 }
             }
-            else
+            else if (_page == 1) // Color menu
             {
                 if (_sel == 12) // Back
                 {
-                    _colorPage = 0;
-                    _sel = 8;
+                    _page = 0;
+                    _sel = 10;
+                }
+            }
+            else if (_page == 2) // Key Bindings menu
+            {
+                if (_sel == 7) // Back
+                {
+                    _page = 0;
+                    _sel = 11;
+                }
+                else if (_sel < 7) // Change key binding
+                {
+                    _waitingForKey = true;
+                    _currentBindingIndex = _sel;
                 }
             }
             _config.Save();
         }
         
-        public void OpenMenu() { IsMenuActive = true; _colorPage = 0; _sel = 0; }
-        public void CloseMenu() { IsMenuActive = false; _colorPage = 0; _config.Save(); }
+        public void OpenMenu() { IsMenuActive = true; _page = 0; _sel = 0; }
+        public void CloseMenu() { IsMenuActive = false; _page = 0; _config.Save(); }
     }
 }

@@ -6,38 +6,30 @@ namespace KeyOverlay
     {
         private ConfigWrapper _config;
         private InputMonitor _input;
-        private Texture2D _whiteTex;  // Single white texture for color control
-        private GUIStyle _keyLabelStyle;
+        private Texture2D _whiteTex;
         private GUIStyle _statsStyle;
         private bool _dragging;
         private Vector2 _dragOffset;
         
-        // Font lookup - Rain World uses a pixel font
-        private Font _pixelFont;
+        // Pixel art arrow icons (Unicode)
+        private const string ARROW_UP = "▲";
+        private const string ARROW_DOWN = "▼";
+        private const string ARROW_LEFT = "◄";
+        private const string ARROW_RIGHT = "►";
+        private const string ICON_JUMP = "●";  // Jump icon
+        private const string ICON_THROW = "◆"; // Throw icon
+        private const string ICON_GRAB = "■";  // Grab icon
         
         public KeyOverlayUI(ConfigWrapper config, InputMonitor input)
         {
             _config = config;
             _input = input;
             
-            // Try to load Rain World's pixel font or fallback to built-in
-            _pixelFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            
-            _keyLabelStyle = new GUIStyle 
-            { 
-                font = _pixelFont,
-                fontSize = 11, 
-                alignment = TextAnchor.MiddleCenter, 
-                normal = { textColor = Color.white },
-                fontStyle = FontStyle.Bold
-            };
-            
             _statsStyle = new GUIStyle
             {
-                font = _pixelFont,
                 fontSize = 10,
                 alignment = TextAnchor.MiddleLeft,
-                normal = { textColor = new Color(0.7f, 0.7f, 0.7f) }
+                normal = { textColor = new Color(0.6f, 0.6f, 0.6f) }
             };
         }
         
@@ -50,124 +42,116 @@ namespace KeyOverlay
                 _whiteTex.Apply();
             }
             
+            _statsStyle.fontSize = Mathf.Max(8, _config.FontSize - 2);
+            
             float x = _config.PanelX;
             float y = _config.PanelY;
             float s = _config.Scale;
             
-            // Compact layout - smaller keys, tighter spacing
-            float keySize = 28 * s;
-            float spacing = 3 * s;
-            float borderWidth = 2 * s;
+            float keySize = 26 * s;
+            float spacing = 2 * s;
+            float borderWidth = _config.BorderWidth * s;
             
-            // Movement keys (WASD layout - compact)
+            // Movement keys (WASD) - using arrow icons
             if (_config.ShowMovementKeys && _config.ShowKeyboard)
             {
                 float mx = x;
                 float my = y;
                 
-                // W (Up) - center above middle row
-                DrawKey(mx + keySize + spacing, my, keySize, borderWidth, "Up", _input.GetKeyBindingName("Up"));
+                // W (Up)
+                DrawKey(mx + keySize + spacing, my, keySize, borderWidth, "Up", ARROW_UP);
                 
-                // A S D (Left, Down, Right) - middle row
-                DrawKey(mx, my + keySize + spacing, keySize, borderWidth, "Left", _input.GetKeyBindingName("Left"));
-                DrawKey(mx + keySize + spacing, my + keySize + spacing, keySize, borderWidth, "Down", _input.GetKeyBindingName("Down"));
-                DrawKey(mx + 2 * (keySize + spacing), my + keySize + spacing, keySize, borderWidth, "Right", _input.GetKeyBindingName("Right"));
+                // A S D
+                DrawKey(mx, my + keySize + spacing, keySize, borderWidth, "Left", ARROW_LEFT);
+                DrawKey(mx + keySize + spacing, my + keySize + spacing, keySize, borderWidth, "Down", ARROW_DOWN);
+                DrawKey(mx + 2 * (keySize + spacing), my + keySize + spacing, keySize, borderWidth, "Right", ARROW_RIGHT);
             }
             
-            // Action keys (Jump, Grab, Throw) - more compact
+            // Action keys - Jump right of W, Throw right of D, Grab right of Throw
             if (_config.ShowActionKeys && _config.ShowKeyboard)
             {
-                float ax = x + 3.5f * (keySize + spacing);
-                float ay = y + spacing;
+                // Jump - right of W (top row)
+                float jumpX = x + 2 * (keySize + spacing);
+                DrawKey(jumpX, y, keySize, borderWidth, "Jump", ICON_JUMP);
                 
-                // Jump on top, Throw next to it
-                DrawKey(ax, ay, keySize, borderWidth, "Jump", _input.GetKeyBindingName("Jump"));
-                DrawKey(ax + keySize + spacing, ay, keySize, borderWidth, "Throw", _input.GetKeyBindingName("Throw"));
+                // Throw - right of D (bottom row)
+                float throwX = x + 3 * (keySize + spacing);
+                DrawKey(throwX, y + keySize + spacing, keySize, borderWidth, "Throw", ICON_THROW);
                 
-                // Grab below Jump
-                DrawKey(ax, ay + keySize + spacing, keySize, borderWidth, "Grab", _input.GetKeyBindingName("Grab"));
+                // Grab - right of Throw
+                float grabX = throwX + keySize + spacing;
+                DrawKey(grabX, y + keySize + spacing, keySize, borderWidth, "Grab", ICON_GRAB);
             }
             
-            // Combo stats - compact line
+            // Combo stats
             if (_config.ShowComboStats)
             {
-                float statsY = y + 2 * (keySize + spacing) + spacing;
+                float statsY = y + 2 * (keySize + spacing) + spacing / 2;
                 GUI.color = new Color(1, 1, 1, _config.Opacity);
-                _statsStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
-                GUI.Label(new Rect(x, statsY, 200 * s, 18 * s), 
-                    $"JMP:{_input.JumpCombo}  THR:{_input.ThrowCombo}  GRB:{_input.GrabCombo}", _statsStyle);
+                GUI.Label(new Rect(x, statsY, 250 * s, 16 * s), 
+                    $"JMP:{_input.JumpCombo} THR:{_input.ThrowCombo} GRB:{_input.GrabCombo}", _statsStyle);
                 GUI.color = Color.white;
             }
             
-            // Drag handling - adjust bounds for compact layout
+            // Drag handling
             float totalWidth = 5 * (keySize + spacing);
-            float totalHeight = 2.3f * (keySize + spacing);
+            float totalHeight = 2.2f * (keySize + spacing);
             HandleDrag(x, y, totalWidth, totalHeight);
         }
         
-        private void DrawKey(float x, float y, float size, float borderWidth, string keyName, string label)
+        private void DrawKey(float x, float y, float size, float borderWidth, string keyName, string icon)
         {
             var state = _input.GetKeyState(keyName);
             bool pressed = state != null && state.IsPressed;
             
-            // Single panel alpha for overall transparency
             float panelAlpha = _config.Opacity;
             
-            // Determine colors based on pressed state
-            Color fillColor;
-            Color borderColor;
-            float fillAlpha;
+            // Fill color based on pressed state
+            Color fillColor = pressed ? _config.KeyColorPressed : _config.KeyColorNormal;
+            float fillAlpha = pressed ? _config.PressedEffectOpacity : _config.FillOpacity;
+            fillAlpha *= panelAlpha;
             
-            if (pressed)
+            // Draw fill first (background)
+            if (fillAlpha > 0)
             {
-                fillColor = _config.KeyColorPressed;
-                borderColor = _config.KeyColorPressed * 0.7f;  // Slightly darker border when pressed
-                fillAlpha = _config.PressedEffectOpacity * panelAlpha;
-            }
-            else
-            {
-                fillColor = _config.KeyColorNormal;
-                borderColor = _config.BorderColor;
-                fillAlpha = _config.FillOpacity * panelAlpha;
+                GUI.color = new Color(fillColor.r, fillColor.g, fillColor.b, fillAlpha);
+                GUI.DrawTexture(new Rect(x, y, size, size), _whiteTex);
             }
             
-            // Border (outer rectangle)
-            GUI.color = new Color(borderColor.r, borderColor.g, borderColor.b, _config.BorderOpacity * panelAlpha);
-            GUI.DrawTexture(new Rect(x, y, size, size), _whiteTex);
-            
-            // Fill (inner rectangle, offset by border width)
-            GUI.color = new Color(fillColor.r, fillColor.g, fillColor.b, fillAlpha);
-            GUI.DrawTexture(new Rect(x + borderWidth, y + borderWidth, size - 2 * borderWidth, size - 2 * borderWidth), _whiteTex);
-            
-            // Key label text
-            if (_config.ShowKeyNames && !string.IsNullOrEmpty(label))
+            // Draw border lines (on top of fill)
+            if (borderWidth > 0)
             {
-                // Text color based on contrast with fill
-                Color textColor = GetContrastTextColor(fillColor, pressed);
+                Color borderColor = _config.BorderColor;
+                float borderAlpha = _config.BorderOpacity * panelAlpha;
+                GUI.color = new Color(borderColor.r, borderColor.g, borderColor.b, borderAlpha);
+                
+                // Top border
+                GUI.DrawTexture(new Rect(x, y, size, borderWidth), _whiteTex);
+                // Bottom border
+                GUI.DrawTexture(new Rect(x, y + size - borderWidth, size, borderWidth), _whiteTex);
+                // Left border
+                GUI.DrawTexture(new Rect(x, y, borderWidth, size), _whiteTex);
+                // Right border
+                GUI.DrawTexture(new Rect(x + size - borderWidth, y, borderWidth, size), _whiteTex);
+            }
+            
+            // Icon text
+            if (_config.ShowKeyNames)
+            {
+                Color textColor = pressed ? new Color(0.1f, 0.1f, 0.1f) : Color.white;
                 GUI.color = new Color(textColor.r, textColor.g, textColor.b, panelAlpha);
-                _keyLabelStyle.normal.textColor = textColor;
-                GUI.Label(new Rect(x, y, size, size), label, _keyLabelStyle);
+                
+                // Use built-in label style for pixel icons
+                var iconStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = _config.FontSize,
+                    alignment = TextAnchor.MiddleCenter,
+                    normal = { textColor = GUI.color }
+                };
+                GUI.Label(new Rect(x, y, size, size), icon, iconStyle);
             }
             
-            // Reset GUI color
             GUI.color = Color.white;
-        }
-        
-        private Color GetContrastTextColor(Color bgColor, bool pressed)
-        {
-            // Simple contrast calculation - use white for dark backgrounds, black for light
-            float brightness = (bgColor.r + bgColor.g + bgColor.b) / 3f;
-            
-            if (pressed)
-            {
-                // When pressed (usually yellow/orange), use black text
-                return new Color(0.1f, 0.1f, 0.1f);
-            }
-            else
-            {
-                // When not pressed, use white text for dark keys
-                return brightness < 0.5f ? Color.white : new Color(0.2f, 0.2f, 0.2f);
-            }
         }
         
         private void HandleDrag(float x, float y, float w, float h)
@@ -195,9 +179,6 @@ namespace KeyOverlay
             }
         }
         
-        public void RefreshTextures() 
-        { 
-            // No longer needed with simple white texture approach
-        }
+        public void RefreshTextures() { }
     }
 }
