@@ -90,7 +90,7 @@ namespace KeyOverlay
             }
             
             // Joystick indicator (right side of keys - no overlap)
-            if (_config.ShowKeyboard)
+            if (_config.ShowKeyboard && _config.ShowJoystick)
             {
                 // Calculate position: right edge of keys + spacing + half joystick radius
                 float keyPanelRightEdge = x + 3 * (keySize + spacing) + keySize;
@@ -111,7 +111,7 @@ namespace KeyOverlay
                 float statsY = y + 2 * (keySize + spacing) + spacing / 2;
                 GUI.color = new Color(1, 1, 1, _config.Opacity);
                 GUI.Label(new Rect(x, statsY, 300 * s, 16 * s), 
-                    $"CPS:{_input.CPS:F1} | JMP:{_input.JumpCombo} THR:{_input.ThrowCombo} GRB:{_input.GrabCombo}", _statsStyle);
+                    $"{Localization.Get("CPS")}:{_input.CPS:F1} | {Localization.Get("JMP")}:{_input.JumpCombo} {Localization.Get("THR")}:{_input.ThrowCombo} {Localization.Get("GRB")}:{_input.GrabCombo}", _statsStyle);
                 GUI.color = Color.white;
             }
             
@@ -181,45 +181,68 @@ namespace KeyOverlay
         
         private void DrawPixelCircle(float cx, float cy, float radius, float pixelSize, Color borderColor, Color fillColor, bool fill)
         {
-            // Draw pixelated circle using midpoint algorithm
             int r = Mathf.RoundToInt(radius / pixelSize);
             int cxInt = Mathf.RoundToInt(cx / pixelSize);
             int cyInt = Mathf.RoundToInt(cy / pixelSize);
             
-            // Draw filled circle if needed
             if (fill)
             {
                 GUI.color = fillColor;
                 for (int py = -r; py <= r; py++)
                 {
-                    for (int px = -r; px <= r; px++)
+                    int rowWidth = Mathf.RoundToInt(Mathf.Sqrt(r * r - py * py));
+                    if (rowWidth > 0)
                     {
-                        if (px * px + py * py <= r * r)
-                        {
-                            float drawX = (cxInt + px) * pixelSize;
-                            float drawY = (cyInt + py) * pixelSize;
-                            GUI.DrawTexture(new Rect(drawX, drawY, pixelSize, pixelSize), _whiteTex);
-                        }
+                        float drawX = (cxInt - rowWidth) * pixelSize;
+                        float drawY = (cyInt + py) * pixelSize;
+                        float width = (2 * rowWidth + 1) * pixelSize;
+                        GUI.DrawTexture(new Rect(drawX, drawY, width, pixelSize), _whiteTex);
                     }
                 }
             }
             
-            // Draw border (outer edge)
             GUI.color = borderColor;
-            for (int py = -r; py <= r; py++)
+            DrawPixelCircleBorder(cxInt, cyInt, r, pixelSize);
+        }
+        
+        private void DrawPixelCircleBorder(int cx, int cy, int r, float pixelSize)
+        {
+            int x = 0;
+            int y = r;
+            int d = 3 - 2 * r;
+            
+            while (x <= y)
             {
-                for (int px = -r; px <= r; px++)
+                DrawBorderPixels(cx, cy, x, y, pixelSize);
+                
+                if (d < 0)
                 {
-                    int distSq = px * px + py * py;
-                    // Draw border pixels (outer ring)
-                    if (distSq <= r * r && distSq > (r - 1) * (r - 1))
-                    {
-                        float drawX = (cxInt + px) * pixelSize;
-                        float drawY = (cyInt + py) * pixelSize;
-                        GUI.DrawTexture(new Rect(drawX, drawY, pixelSize, pixelSize), _whiteTex);
-                    }
+                    d = d + 4 * x + 6;
                 }
+                else
+                {
+                    d = d + 4 * (x - y) + 10;
+                    y--;
+                }
+                x++;
             }
+        }
+        
+        private void DrawBorderPixels(int cx, int cy, int x, int y, float pixelSize)
+        {
+            DrawPixel(cx + x, cy + y, pixelSize);
+            DrawPixel(cx - x, cy + y, pixelSize);
+            DrawPixel(cx + x, cy - y, pixelSize);
+            DrawPixel(cx - x, cy - y, pixelSize);
+            DrawPixel(cx + y, cy + x, pixelSize);
+            DrawPixel(cx - y, cy + x, pixelSize);
+            DrawPixel(cx + y, cy - x, pixelSize);
+            DrawPixel(cx - y, cy - x, pixelSize);
+        }
+        
+        private void DrawPixel(int px, int py, float pixelSize)
+        {
+            GUI.DrawTexture(new Rect(px * pixelSize, py * pixelSize, pixelSize, pixelSize), _whiteTex);
         }
         
         private void DrawKey(float x, float y, float size, float borderWidth, string keyName, string icon)

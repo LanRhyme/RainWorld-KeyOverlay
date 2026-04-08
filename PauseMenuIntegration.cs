@@ -307,7 +307,7 @@ namespace KeyOverlay
             // Title bar (draggable)
             Rect titleRect = new Rect(cx, cy, WindowWidth, TitleBarHeight);
             GUI.Box(titleRect, "", new GUIStyle { normal = { background = _pixelBorderTex } });
-            GUI.Label(new Rect(cx, cy + 5, WindowWidth, 20), "◄ KEY OVERLAY ►", _titleBarStyle);
+            GUI.Label(new Rect(cx, cy + 5, WindowWidth, 20), "◄ " + Localization.Get("Key Overlay Settings") + " ►", _titleBarStyle);
             
             // Content area
             GUILayout.BeginArea(new Rect(cx + 16, cy + TitleBarHeight + 8, WindowWidth - 32, WindowHeight - TitleBarHeight - 24));
@@ -364,9 +364,9 @@ namespace KeyOverlay
         {
             GUILayout.BeginHorizontal();
             
-            string[] tabs = { "General", "Position", "Style", "Colors", "Keys" };
+            string[] tabKeys = { "General", "Position", "Style", "Colors", "Keys" };
             
-            for (int i = 0; i < tabs.Length; i++)
+            for (int i = 0; i < tabKeys.Length; i++)
             {
                 bool isSelected = (_tab == i);
                 
@@ -376,7 +376,7 @@ namespace KeyOverlay
                     GUI.backgroundColor = new Color(1f, 0.85f, 0.4f, 0.3f);
                 }
                 
-                if (GUILayout.Button(tabs[i], _tabButtonStyle, GUILayout.Height(ButtonHeight - 8)))
+                if (GUILayout.Button(Localization.Get(tabKeys[i]), _tabButtonStyle, GUILayout.Height(ButtonHeight - 8)))
                 {
                     _tab = i;
                 }
@@ -389,23 +389,49 @@ namespace KeyOverlay
         
         private void DrawGeneralTab()
         {
-            DrawPixelToggle("Show Keyboard Overlay", () => _config.ShowKeyboard, v => _config.SetShowKeyboard(v));
-            DrawPixelToggle("Show Gamepad Overlay", () => _config.ShowGamepad, v => _config.SetShowGamepad(v));
-            DrawPixelToggle("Show Combo Stats", () => _config.ShowComboStats, v => _config.SetShowComboStats(v));
-            DrawPixelToggle("Show Key Names", () => _config.ShowKeyNames, v => _config.SetShowKeyNames(v));
+            // Language selector at top
+            DrawLanguageSelector();
+            
+            DrawPixelToggle(Localization.Get("Show Keyboard Overlay"), () => _config.ShowKeyboard, v => _config.SetShowKeyboard(v));
+            DrawPixelToggle(Localization.Get("Show Gamepad Overlay"), () => _config.ShowGamepad, v => _config.SetShowGamepad(v));
+            DrawPixelToggle(Localization.Get("Show Combo Stats"), () => _config.ShowComboStats, v => _config.SetShowComboStats(v));
+            DrawPixelToggle(Localization.Get("Show Key Names"), () => _config.ShowKeyNames, v => _config.SetShowKeyNames(v));
             if (_config.ShowKeyNames)
             {
-                DrawPixelToggle("  Use Icons", () => _config.ShowIconMode, v => _config.SetShowIconMode(v));
+                DrawPixelToggle("  " + Localization.Get("Use Icons"), () => _config.ShowIconMode, v => _config.SetShowIconMode(v));
             }
-            DrawPixelToggle("Show Movement Keys", () => _config.ShowMovementKeys, v => _config.SetShowMovementKeys(v));
-            DrawPixelToggle("Show Action Keys", () => _config.ShowActionKeys, v => _config.SetShowActionKeys(v));
+            DrawPixelToggle(Localization.Get("Show Movement Keys"), () => _config.ShowMovementKeys, v => _config.SetShowMovementKeys(v));
+            DrawPixelToggle(Localization.Get("Show Action Keys"), () => _config.ShowActionKeys, v => _config.SetShowActionKeys(v));
+            DrawPixelToggle(Localization.Get("Show Joystick Indicator"), () => _config.ShowJoystick, v => _config.SetShowJoystick(v));
             
             GUILayout.Space(Spacing * 2);
             
-            if (GUILayout.Button("[ RESET STATS ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            if (GUILayout.Button("[ " + Localization.Get("RESET STATS") + " ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 _input?.ResetStats();
             }
+        }
+        
+        private void DrawLanguageSelector()
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Localization.Get("Language") + ":", _labelStyle, GUILayout.Width(80));
+            
+            int lang = _config.Language;
+            string[] options = new[] { 
+                Localization.Get("Auto (Follow Game)"), 
+                Localization.Get("English"), 
+                Localization.Get("Chinese (Simplified)") 
+            };
+            
+            int newLang = GUILayout.SelectionGrid(lang, options, 1, _buttonStyle);
+            if (newLang != lang)
+            {
+                _config.SetLanguage(newLang);
+            }
+            
+            GUILayout.EndHorizontal();
+            GUILayout.Space(Spacing);
         }
         
         private void DrawPixelToggle(string label, System.Func<bool> getter, System.Action<bool> setter)
@@ -440,29 +466,29 @@ namespace KeyOverlay
         
         private void DrawPositionTab()
         {
-            DrawPixelSlider("Panel X", _config.PanelX, 0f, Screen.width, v => {
+            DrawPixelSlider(Localization.Get("Position X"), _config.PanelX, 0f, Screen.width, v => {
                 _config.SetPanelX(v);
                 _ui.RefreshTextures();
             }, "{0:F0}");
             
-            DrawPixelSlider("Panel Y", _config.PanelY, 0f, Screen.height, v => {
+            DrawPixelSlider(Localization.Get("Position Y"), _config.PanelY, 0f, Screen.height, v => {
                 _config.SetPanelY(v);
                 _ui.RefreshTextures();
             }, "{0:F0}");
             
-            DrawPixelSlider("Scale", _config.Scale, 0.5f, 3f, v => {
+            DrawPixelSlider(Localization.Get("Scale"), _config.Scale, 0.5f, 3f, v => {
                 _config.SetScale(v);
                 _ui.RefreshTextures();
             }, "{0:F1}x");
             
-            DrawPixelSlider("Opacity", _config.Opacity, 0.1f, 1f, v => {
+            DrawPixelSlider(Localization.Get("Opacity"), _config.Opacity, 0.1f, 1f, v => {
                 _config.SetOpacity(v);
                 _ui.RefreshTextures();
             }, "{0:F1}");
             
             GUILayout.Space(Spacing);
             
-            if (GUILayout.Button("[ RESET POSITION ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            if (GUILayout.Button("[ " + Localization.Get("RESET POSITION") + " ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 _config.SetPanelX(136f);
                 _config.SetPanelY(666f);
@@ -474,27 +500,27 @@ namespace KeyOverlay
         
         private void DrawStyleTab()
         {
-            DrawPixelSlider("Border Opacity", _config.BorderOpacity, 0f, 1f, v => {
+            DrawPixelSlider(Localization.Get("Border Opacity"), _config.BorderOpacity, 0f, 1f, v => {
                 _config.SetBorderOpacity(v);
                 _ui.RefreshTextures();
             }, "{0:F2}");
             
-            DrawPixelSlider("Fill Opacity", _config.FillOpacity, 0f, 1f, v => {
+            DrawPixelSlider(Localization.Get("Fill Opacity"), _config.FillOpacity, 0f, 1f, v => {
                 _config.SetFillOpacity(v);
                 _ui.RefreshTextures();
             }, "{0:F2}");
             
-            DrawPixelSlider("Pressed Effect", _config.PressedEffectOpacity, 0f, 1f, v => {
+            DrawPixelSlider(Localization.Get("Pressed Effect"), _config.PressedEffectOpacity, 0f, 1f, v => {
                 _config.SetPressedEffectOpacity(v);
                 _ui.RefreshTextures();
             }, "{0:F2}");
             
-            DrawPixelSlider("Border Width", _config.BorderWidth, 0.5f, 4f, v => {
+            DrawPixelSlider(Localization.Get("Border Width"), _config.BorderWidth, 0.5f, 4f, v => {
                 _config.SetBorderWidth(v);
                 _ui.RefreshTextures();
             }, "{0:F1}px");
             
-            DrawPixelSlider("Font Size", _config.FontSize, 8, 20, v => {
+            DrawPixelSlider(Localization.Get("Font Size"), _config.FontSize, 8, 20, v => {
                 _config.SetFontSize((int)v);
                 _ui.RefreshTextures();
             }, "{0:F0}");
@@ -520,17 +546,17 @@ namespace KeyOverlay
         
         private void DrawColorsTab()
         {
-            GUILayout.Label("Normal Color", _labelStyle);
+            GUILayout.Label(Localization.Get("Normal Color"), _labelStyle);
             DrawColorSliders("normal");
             
             GUILayout.Space(Spacing);
             
-            GUILayout.Label("Pressed Color", _labelStyle);
+            GUILayout.Label(Localization.Get("Pressed Color"), _labelStyle);
             DrawColorSliders("pressed");
             
             GUILayout.Space(Spacing);
             
-            GUILayout.Label("Border Color", _labelStyle);
+            GUILayout.Label(Localization.Get("Border Color"), _labelStyle);
             DrawColorSliders("border");
             
             GUILayout.Space(Spacing);
@@ -635,7 +661,7 @@ namespace KeyOverlay
             for (int i = 0; i < keyNames.Length; i++)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(keyNames[i], _labelStyle, GUILayout.Width(60));
+                GUILayout.Label(Localization.Get(keyNames[i]), _labelStyle, GUILayout.Width(60));
                 
                 if (GUILayout.Button($"[ {keyCodes[i]} ]", _keyButtonStyle, GUILayout.Height(ButtonHeight - 6)))
                 {
@@ -649,7 +675,7 @@ namespace KeyOverlay
             
             GUILayout.Space(Spacing);
             
-            if (GUILayout.Button("[ RESET TO DEFAULTS ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            if (GUILayout.Button("[ " + Localization.Get("RESET STATS") + " ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 _config.SetKeyUp(KeyCode.W);
                 _config.SetKeyDown(KeyCode.S);
@@ -670,15 +696,15 @@ namespace KeyOverlay
             
             GUILayout.BeginArea(new Rect(cx + 20, cy + 30, 280, 130));
             
-            GUILayout.Label("◄ KEY BINDING ►", _headerStyle);
+            GUILayout.Label("◄ " + Localization.Get("Keys") + " ►", _headerStyle);
             GUILayout.Space(15);
             
             string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
-            GUILayout.Label("Press new key for:", _labelStyle);
-            GUILayout.Label($"[ {keyNames[_currentBindingIndex]} ]", _headerStyle);
+            GUILayout.Label(Localization.Get("Press any key..."), _labelStyle);
+            GUILayout.Label($"[ {Localization.Get(keyNames[_currentBindingIndex])} ]", _headerStyle);
             GUILayout.Space(10);
             
-            GUILayout.Label("Press any key... (Esc to cancel)", _smallLabelStyle);
+            GUILayout.Label(Localization.Get("Press any key..."), _smallLabelStyle);
             
             GUILayout.EndArea();
             
@@ -694,16 +720,16 @@ namespace KeyOverlay
             
             GUILayout.BeginArea(new Rect(cx + 20, cy + 30, 280, 130));
             
-            GUILayout.Label("◄ CONFIRM ►", _headerStyle);
+            GUILayout.Label("◄ " + Localization.Get("Keys") + " ►", _headerStyle);
             GUILayout.Space(15);
             
             string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
-            GUILayout.Label($"Bind {keyNames[_currentBindingIndex]} to:", _labelStyle);
+            GUILayout.Label($"{Localization.Get(keyNames[_currentBindingIndex])}:", _labelStyle);
             GUILayout.Label($"[ {_pendingKey} ]", _headerStyle);
             GUILayout.Space(15);
             
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("[ CONFIRM ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            if (GUILayout.Button("[ OK ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 SetKeyBinding(_currentBindingIndex, _pendingKey);
                 _confirmingKey = false;
@@ -711,7 +737,7 @@ namespace KeyOverlay
                 _pendingKey = KeyCode.None;
                 _config.Save();
             }
-            if (GUILayout.Button("[ CANCEL ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            if (GUILayout.Button("[ X ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 _confirmingKey = false;
                 _waitingForKey = false;

@@ -28,7 +28,9 @@ namespace KeyOverlay
         internal ConfigEntry<bool> ConfigShowKeyNames;
         internal ConfigEntry<bool> ConfigShowMovementKeys;
         internal ConfigEntry<bool> ConfigShowActionKeys;
+        internal ConfigEntry<bool> ConfigShowJoystick; // Joystick indicator
         internal ConfigEntry<bool> ConfigShowIconMode; // true = icons, false = key names
+        internal ConfigEntry<int> ConfigLanguage; // 0=Auto, 1=English, 2=ChineseSimplified
         
         // Color settings
         internal ConfigEntry<Color> ConfigKeyColorNormal;
@@ -68,6 +70,10 @@ namespace KeyOverlay
             try
             {
                 InitConfig();
+                
+                // Initialize localization
+                Localization.Initialize((Localization.Language)ConfigLanguage.Value);
+                
                 _configWrapper = new ConfigWrapper(this);
                 _inputMonitor = new InputMonitor();
                 _ui = new KeyOverlayUI(_configWrapper, _inputMonitor);
@@ -98,7 +104,9 @@ namespace KeyOverlay
             ConfigShowKeyNames = Config.Bind("Features", "ShowKeyNames", true);
             ConfigShowMovementKeys = Config.Bind("Keys", "MovementKeys", true);
             ConfigShowActionKeys = Config.Bind("Keys", "ActionKeys", true);
+            ConfigShowJoystick = Config.Bind("Display", "ShowJoystick", true); // Joystick indicator, default ON
             ConfigShowIconMode = Config.Bind("Display", "ShowIconMode", false); // false = key names (W/A/S/D), true = icons (▲▼◄►)
+            ConfigLanguage = Config.Bind("Display", "Language", 0); // 0=Auto, 1=English, 2=ChineseSimplified
             
             // Color settings - user's custom colors (white theme)
             ConfigKeyColorNormal = Config.Bind("Colors", "KeyColorNormal", new Color(1f, 1f, 1f));
@@ -211,7 +219,9 @@ namespace KeyOverlay
         public bool ShowKeyNames => p?.ConfigShowKeyNames?.Value ?? true;
         public bool ShowMovementKeys => p?.ConfigShowMovementKeys?.Value ?? true;
         public bool ShowActionKeys => p?.ConfigShowActionKeys?.Value ?? true;
+        public bool ShowJoystick => p?.ConfigShowJoystick?.Value ?? true; // Joystick indicator
         public bool ShowIconMode => p?.ConfigShowIconMode?.Value ?? true; // true = icons, false = key names
+        public int Language => p?.ConfigLanguage?.Value ?? 0; // 0=Auto, 1=English, 2=ChineseSimplified
         
         // Get display name for a key (returns key binding name or icon)
         public string GetKeyDisplayName(string keyName)
@@ -324,7 +334,16 @@ namespace KeyOverlay
         public void SetShowKeyNames(bool v) { if (p?.ConfigShowKeyNames != null) p.ConfigShowKeyNames.Value = v; }
         public void SetShowMovementKeys(bool v) { if (p?.ConfigShowMovementKeys != null) p.ConfigShowMovementKeys.Value = v; }
         public void SetShowActionKeys(bool v) { if (p?.ConfigShowActionKeys != null) p.ConfigShowActionKeys.Value = v; }
+        public void SetShowJoystick(bool v) { if (p?.ConfigShowJoystick != null) p.ConfigShowJoystick.Value = v; }
         public void SetShowIconMode(bool v) { if (p?.ConfigShowIconMode != null) p.ConfigShowIconMode.Value = v; }
+        public void SetLanguage(int v) 
+        { 
+            if (p?.ConfigLanguage != null) 
+            {
+                p.ConfigLanguage.Value = v;
+                Localization.Initialize((Localization.Language)v);
+            }
+        }
         
         public void SetBorderOpacity(float v) { if (p?.ConfigBorderOpacity != null) p.ConfigBorderOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
         public void SetFillOpacity(float v) { if (p?.ConfigFillOpacity != null) p.ConfigFillOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
