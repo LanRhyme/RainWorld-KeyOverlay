@@ -2,331 +2,673 @@ using UnityEngine;
 
 namespace KeyOverlay
 {
+    /// <summary>
+    /// F1 Settings Menu - Enhanced Pixel-style UI with mouse support
+    /// Author: LanRhyme
+    /// </summary>
     public class PauseMenuIntegration
     {
         private ConfigWrapper _config;
         private KeyOverlayUI _ui;
         private InputMonitor _input;
         public bool IsMenuActive { get; private set; }
-        private int _sel = 0;
-        private int _page = 0; // 0: main, 1: colors, 2: keybindings
+        
+        private int _tab = 0;
         
         // Key binding states
-        private bool _waitingForKey = false;      // Step 1: waiting for user to press a key
-        private bool _confirmingKey = false;      // Step 2: waiting for Enter to confirm
+        private bool _waitingForKey = false;
+        private bool _confirmingKey = false;
         private int _currentBindingIndex = -1;
-        private KeyCode _pendingKey = KeyCode.None; // The key user pressed, waiting for confirmation
+        private KeyCode _pendingKey = KeyCode.None;
         
-        private readonly string[] _mainOpts = {
-            "Scale", "Opacity", "Font Size", "Border Width", "Keyboard", "Gamepad", "Stats", "Names", "Movement", "Actions",
-            "Color Settings...", "Key Bindings...", "Reset Pos", "Reset Stats"
-        };
+        // UI dimensions
+        private const float WindowWidth = 420f;
+        private const float WindowHeight = 520f;
+        private const float ButtonHeight = 32f;
+        private const float Spacing = 8f;
         
-        private readonly string[] _colorOpts = {
-            "Normal Color R", "Normal Color G", "Normal Color B",
-            "Pressed Color R", "Pressed Color G", "Pressed Color B",
-            "Border Color R", "Border Color G", "Border Color B",
-            "Border Opacity", "Fill Opacity", "Pressed Effect Opacity",
-            "Back to Main..."
-        };
+        // Pixel color palette (Rain World inspired)
+        private static readonly Color PixelBg = new Color(0.08f, 0.08f, 0.1f);
+        private static readonly Color PixelBgLight = new Color(0.12f, 0.12f, 0.15f);
+        private static readonly Color PixelBorder = new Color(0.25f, 0.25f, 0.28f);
+        private static readonly Color PixelHighlight = new Color(1f, 0.82f, 0.35f); // Yellow-gold
+        private static readonly Color PixelText = new Color(0.95f, 0.95f, 0.95f);
+        private static readonly Color PixelTextDim = new Color(0.6f, 0.6f, 0.65f);
+        private static readonly Color PixelAccent = new Color(0.4f, 0.35f, 0.25f);
         
-        private readonly string[] _keyBindOpts = {
-            "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab",
-            "Back to Main..."
-        };
+        // Styles
+        private GUIStyle _windowStyle;
+        private GUIStyle _labelStyle;
+        private GUIStyle _buttonStyle;
+        private GUIStyle _toggleStyle;
+        private GUIStyle _sliderStyle;
+        private GUIStyle _sliderThumbStyle;
+        private GUIStyle _tabButtonStyle;
+        private GUIStyle _headerStyle;
+        private GUIStyle _smallLabelStyle;
+        private GUIStyle _keyButtonStyle;
+        private bool _stylesInitialized = false;
+        
+        // Textures
+        private Texture2D _pixelBorderTex;
+        private Texture2D _pixelButtonTex;
+        private Texture2D _pixelButtonHoverTex;
+        private Texture2D _pixelSliderTex;
+        private Texture2D _pixelThumbTex;
         
         public PauseMenuIntegration(ConfigWrapper c, KeyOverlayUI u, InputMonitor i)
         {
-            _config = c; _ui = u; _input = i;
+            _config = c;
+            _ui = u;
+            _input = i;
+        }
+        
+        private void InitStyles()
+        {
+            if (_stylesInitialized) return;
+            _stylesInitialized = true;
+            
+            CreatePixelTextures();
+            
+            // Window - dark with pixel border
+            _windowStyle = new GUIStyle();
+            _windowStyle.normal.background = _pixelBorderTex;
+            _windowStyle.border = new RectOffset(4, 4, 4, 4);
+            
+            // Label - clean pixel text
+            _labelStyle = new GUIStyle();
+            _labelStyle.fontSize = 14;
+            _labelStyle.normal.textColor = PixelText;
+            _labelStyle.alignment = TextAnchor.MiddleLeft;
+            _labelStyle.wordWrap = false;
+            
+            // Small label for values
+            _smallLabelStyle = new GUIStyle(_labelStyle);
+            _smallLabelStyle.fontSize = 12;
+            _smallLabelStyle.normal.textColor = PixelTextDim;
+            
+            // Button - pixel border style
+            _buttonStyle = new GUIStyle();
+            _buttonStyle.fontSize = 13;
+            _buttonStyle.normal.background = _pixelButtonTex;
+            _buttonStyle.normal.textColor = PixelText;
+            _buttonStyle.hover.background = _pixelButtonHoverTex;
+            _buttonStyle.hover.textColor = PixelHighlight;
+            _buttonStyle.active.background = _pixelThumbTex;
+            _buttonStyle.active.textColor = Color.white;
+            _buttonStyle.border = new RectOffset(3, 3, 3, 3);
+            _buttonStyle.padding = new RectOffset(10, 10, 6, 6);
+            _buttonStyle.alignment = TextAnchor.MiddleCenter;
+            
+            // Key button - for key bindings
+            _keyButtonStyle = new GUIStyle(_buttonStyle);
+            _keyButtonStyle.fontSize = 12;
+            _keyButtonStyle.normal.background = _pixelSliderTex;
+            _keyButtonStyle.hover.background = _pixelButtonHoverTex;
+            
+            // Toggle
+            _toggleStyle = new GUIStyle();
+            _toggleStyle.fontSize = 13;
+            _toggleStyle.normal.textColor = PixelText;
+            _toggleStyle.hover.textColor = PixelHighlight;
+            _toggleStyle.alignment = TextAnchor.MiddleLeft;
+            
+            // Slider
+            _sliderStyle = new GUIStyle();
+            _sliderStyle.normal.background = _pixelSliderTex;
+            _sliderStyle.border = new RectOffset(2, 2, 2, 2);
+            _sliderStyle.fixedHeight = 12f;
+            
+            _sliderThumbStyle = new GUIStyle();
+            _sliderThumbStyle.normal.background = _pixelThumbTex;
+            _sliderThumbStyle.hover.background = _pixelButtonHoverTex;
+            _sliderThumbStyle.border = new RectOffset(2, 2, 2, 2);
+            _sliderThumbStyle.fixedWidth = 16f;
+            _sliderThumbStyle.fixedHeight = 16f;
+            
+            // Tab button
+            _tabButtonStyle = new GUIStyle(_buttonStyle);
+            _tabButtonStyle.fontSize = 12;
+            _tabButtonStyle.padding = new RectOffset(8, 8, 5, 5);
+            
+            // Header - golden pixel title
+            _headerStyle = new GUIStyle();
+            _headerStyle.fontSize = 18;
+            _headerStyle.fontStyle = FontStyle.Bold;
+            _headerStyle.normal.textColor = PixelHighlight;
+            _headerStyle.alignment = TextAnchor.MiddleCenter;
+        }
+        
+        private void CreatePixelTextures()
+        {
+            // Pixel border texture (9-slice compatible)
+            _pixelBorderTex = CreatePixelBorderTexture(PixelBg, PixelBorder, 16);
+            
+            // Button textures
+            _pixelButtonTex = CreatePixelButtonTexture(PixelBgLight, PixelBorder, false);
+            _pixelButtonHoverTex = CreatePixelButtonTexture(new Color(0.18f, 0.18f, 0.22f), PixelHighlight, true);
+            
+            // Slider textures
+            _pixelSliderTex = CreateSolidTexture(new Color(0.2f, 0.2f, 0.24f), 4);
+            _pixelThumbTex = CreateSolidTexture(PixelHighlight, 4);
+        }
+        
+        private Texture2D CreatePixelBorderTexture(Color fill, Color border, int size)
+        {
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point; // Pixel perfect!
+            
+            Color[] pixels = new Color[size * size];
+            int borderSize = 2;
+            
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool isBorder = x < borderSize || x >= size - borderSize || 
+                                    y < borderSize || y >= size - borderSize;
+                    pixels[y * size + x] = isBorder ? border : fill;
+                }
+            }
+            
+            tex.SetPixels(pixels);
+            tex.Apply();
+            return tex;
+        }
+        
+        private Texture2D CreatePixelButtonTexture(Color fill, Color border, bool highlight)
+        {
+            int size = 12;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+            
+            Color[] pixels = new Color[size * size];
+            
+            // Create pixelated button with beveled edges
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    Color c = fill;
+                    
+                    // Top edge lighter
+                    if (y == 0 || y == 1) c = highlight ? border : new Color(fill.r * 1.3f, fill.g * 1.3f, fill.b * 1.3f);
+                    // Bottom edge darker
+                    else if (y == size - 1 || y == size - 2) c = new Color(fill.r * 0.7f, fill.g * 0.7f, fill.b * 0.7f);
+                    // Left edge lighter
+                    else if (x == 0 || x == 1) c = highlight ? border : new Color(fill.r * 1.2f, fill.g * 1.2f, fill.b * 1.2f);
+                    // Right edge darker
+                    else if (x == size - 1 || x == size - 2) c = new Color(fill.r * 0.8f, fill.g * 0.8f, fill.b * 0.8f);
+                    
+                    pixels[y * size + x] = c;
+                }
+            }
+            
+            tex.SetPixels(pixels);
+            tex.Apply();
+            return tex;
+        }
+        
+        private Texture2D CreateSolidTexture(Color color, int size)
+        {
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+            
+            Color[] pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = color;
+            
+            tex.SetPixels(pixels);
+            tex.Apply();
+            return tex;
         }
         
         public void OnGUI()
         {
             if (!IsMenuActive) return;
             
+            InitStyles();
+            
             if (_waitingForKey)
             {
-                DrawWaitingForKey();
-                HandleKeyBindInput();
+                DrawKeyBindingDialog();
                 return;
             }
             
             if (_confirmingKey)
             {
-                DrawConfirmingKey();
-                HandleConfirmInput();
+                DrawConfirmDialog();
                 return;
             }
             
-            if (_page == 0) DrawMainMenu();
-            else if (_page == 1) DrawColorMenu();
-            else if (_page == 2) DrawKeyBindMenu();
+            // Calculate window position
+            float cx = (Screen.width - WindowWidth) / 2;
+            float cy = (Screen.height - WindowHeight) / 2;
             
-            HandleInput();
-        }
-        
-        private void DrawWaitingForKey()
-        {
-            float cx = Screen.width / 2 - 150;
-            float cy = Screen.height / 2 - 60;
+            // Draw window background
+            GUI.Box(new Rect(cx, cy, WindowWidth, WindowHeight), "", _windowStyle);
             
-            GUI.Box(new Rect(cx, cy, 300, 120), "KEY BINDING");
+            // Inner padding
+            GUILayout.BeginArea(new Rect(cx + 16, cy + 16, WindowWidth - 32, WindowHeight - 32));
             
-            var style = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
-            GUI.Label(new Rect(cx, cy + 35, 300, 25), $"Press new key for {_keyBindOpts[_currentBindingIndex]}", style);
+            // Header with pixel decoration
+            DrawPixelHeader();
+            GUILayout.Space(Spacing);
             
-            var hintStyle = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.6f, 0.6f, 0.6f) } };
-            GUI.Label(new Rect(cx, cy + 65, 300, 25), "Press any key...", hintStyle);
-            GUI.Label(new Rect(cx, cy + 85, 300, 25), "Esc: Cancel", hintStyle);
-        }
-        
-        private void DrawConfirmingKey()
-        {
-            float cx = Screen.width / 2 - 150;
-            float cy = Screen.height / 2 - 60;
+            // Tab buttons
+            DrawTabs();
+            GUILayout.Space(Spacing * 2);
             
-            GUI.Box(new Rect(cx, cy, 300, 120), "CONFIRM BINDING");
-            
-            var style = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
-            GUI.Label(new Rect(cx, cy + 35, 300, 25), $"Bind {_keyBindOpts[_currentBindingIndex]} to: {_pendingKey}", style);
-            
-            var hintStyle = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.6f, 0.6f, 0.6f) } };
-            GUI.Label(new Rect(cx, cy + 65, 300, 25), "Enter: Confirm | Esc: Cancel", hintStyle);
-            GUI.Label(new Rect(cx, cy + 85, 300, 25), "Press other key to change", hintStyle);
-        }
-        
-        private void DrawMainMenu()
-        {
-            float cx = Screen.width / 2 - 150;
-            float cy = Screen.height / 2 - 250;
-            
-            GUI.Box(new Rect(cx, cy, 300, 540), "KEY OVERLAY SETTINGS");
-            
-            var style = new GUIStyle { fontSize = 14, normal = { textColor = Color.white } };
-            var selStyle = new GUIStyle { fontSize = 14, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
-            
-            for (int i = 0; i < _mainOpts.Length; i++)
+            // Tab content
+            switch (_tab)
             {
-                float y = cy + 30 + i * 30;
-                string txt = _mainOpts[i];
-                
-                if (i == 0) txt += $": {_config.Scale:F1}";
-                else if (i == 1) txt += $": {_config.Opacity:F1}";
-                else if (i == 2) txt += $": {_config.FontSize}";
-                else if (i == 3) txt += $": {_config.BorderWidth:F1}";
-                else if (i >= 4 && i <= 9) txt += GetToggle(i);
-                
-                GUI.Label(new Rect(cx + 30, y, 200, 25), (i == _sel ? "> " : "  ") + txt, i == _sel ? selStyle : style);
+                case 0: DrawGeneralTab(); break;
+                case 1: DrawPositionTab(); break;
+                case 2: DrawStyleTab(); break;
+                case 3: DrawColorsTab(); break;
+                case 4: DrawKeysTab(); break;
             }
             
-            GUI.Label(new Rect(cx, cy + 500, 300, 25), "F1:Close | Arrows:Navigate | Enter:Toggle");
+            GUILayout.EndArea();
         }
         
-        private void DrawColorMenu()
+        private void DrawPixelHeader()
         {
-            float cx = Screen.width / 2 - 150;
-            float cy = Screen.height / 2 - 230;
+            GUILayout.BeginHorizontal();
             
-            GUI.Box(new Rect(cx, cy, 300, 470), "COLOR SETTINGS");
+            // Left decoration
+            GUILayout.Label("◄", _headerStyle, GUILayout.Width(20));
+            GUILayout.Label("KEY OVERLAY", _headerStyle);
+            GUILayout.Label("►", _headerStyle, GUILayout.Width(20));
             
-            var style = new GUIStyle { fontSize = 12, normal = { textColor = Color.white } };
-            var selStyle = new GUIStyle { fontSize = 12, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
+            GUILayout.EndHorizontal();
+        }
+        
+        private void DrawTabs()
+        {
+            GUILayout.BeginHorizontal();
             
-            for (int i = 0; i < _colorOpts.Length; i++)
+            string[] tabs = { "General", "Position", "Style", "Colors", "Keys" };
+            
+            for (int i = 0; i < tabs.Length; i++)
             {
-                float y = cy + 30 + i * 30;
-                string txt = _colorOpts[i];
-                float val = GetColorValue(i);
-                txt += $": {val:F2}";
+                bool isSelected = (_tab == i);
                 
-                GUI.Label(new Rect(cx + 30, y, 200, 25), (i == _sel ? "> " : "  ") + txt, i == _sel ? selStyle : style);
+                // Highlight selected tab
+                Color prevBg = GUI.backgroundColor;
+                if (isSelected)
+                {
+                    GUI.backgroundColor = new Color(1f, 0.85f, 0.4f, 0.3f);
+                }
+                
+                if (GUILayout.Button(tabs[i], _tabButtonStyle, GUILayout.Height(ButtonHeight - 4)))
+                {
+                    _tab = i;
+                }
+                
+                GUI.backgroundColor = prevBg;
             }
             
-            // Preview box
-            float px = cx + 220;
-            float py = cy + 30;
-            DrawPreviewKey(px, py);
-            
-            GUI.Label(new Rect(cx, cy + 440, 300, 25), "Arrows:Adjust | Enter:Back");
+            GUILayout.EndHorizontal();
         }
         
-        private void DrawPreviewKey(float x, float y)
+        private void DrawGeneralTab()
         {
-            float size = 40;
+            // Toggles with pixel checkbox style
+            DrawPixelToggle("Show Keyboard Overlay", () => _config.ShowKeyboard, v => _config.SetShowKeyboard(v));
+            DrawPixelToggle("Show Gamepad Overlay", () => _config.ShowGamepad, v => _config.SetShowGamepad(v));
+            DrawPixelToggle("Show Combo Stats", () => _config.ShowComboStats, v => _config.SetShowComboStats(v));
+            DrawPixelToggle("Show Key Names", () => _config.ShowKeyNames, v => _config.SetShowKeyNames(v));
+            DrawPixelToggle("Show Movement Keys", () => _config.ShowMovementKeys, v => _config.SetShowMovementKeys(v));
+            DrawPixelToggle("Show Action Keys", () => _config.ShowActionKeys, v => _config.SetShowActionKeys(v));
             
+            GUILayout.Space(Spacing * 3);
+            
+            // Action buttons
+            if (GUILayout.Button("[ RESET STATS ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            {
+                _input?.ResetStats();
+            }
+        }
+        
+        private void DrawPixelToggle(string label, System.Func<bool> getter, System.Action<bool> setter)
+        {
+            GUILayout.BeginHorizontal();
+            
+            bool value = getter();
+            
+            // Pixel checkbox box
+            Rect checkRect = GUILayoutUtility.GetRect(20, 20, GUILayout.Width(20));
+            
+            // Draw checkbox background
+            GUI.DrawTexture(checkRect, _pixelButtonTex, ScaleMode.StretchToFill, true, 0, Color.white, 0, 0);
+            
+            // Draw X if checked
+            if (value)
+            {
+                GUI.color = PixelHighlight;
+                GUI.Label(new Rect(checkRect.x + 4, checkRect.y + 2, 16, 16), "✓", _labelStyle);
+                GUI.color = Color.white;
+            }
+            
+            // Click detection
+            if (Event.current.type == EventType.MouseDown && checkRect.Contains(Event.current.mousePosition))
+            {
+                setter(!value);
+                Event.current.Use();
+            }
+            
+            // Label
+            GUILayout.Space(8);
+            GUILayout.Label(label, _labelStyle);
+            
+            GUILayout.EndHorizontal();
+            GUILayout.Space(4);
+        }
+        
+        private void DrawPositionTab()
+        {
+            // Panel X
+            DrawPixelSlider("Panel X", _config.PanelX, 0f, Screen.width, v => {
+                _config.SetPanelX(v);
+                _ui.RefreshTextures();
+            }, "{0:F0}");
+            
+            // Panel Y
+            DrawPixelSlider("Panel Y", _config.PanelY, 0f, Screen.height, v => {
+                _config.SetPanelY(v);
+                _ui.RefreshTextures();
+            }, "{0:F0}");
+            
+            // Scale
+            DrawPixelSlider("Scale", _config.Scale, 0.5f, 3f, v => {
+                _config.SetScale(v);
+                _ui.RefreshTextures();
+            }, "{0:F1}x");
+            
+            // Opacity
+            DrawPixelSlider("Opacity", _config.Opacity, 0.1f, 1f, v => {
+                _config.SetOpacity(v);
+                _ui.RefreshTextures();
+            }, "{0:F1}");
+            
+            GUILayout.Space(Spacing * 2);
+            
+            if (GUILayout.Button("[ RESET POSITION ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            {
+                _config.SetPanelX(136f);
+                _config.SetPanelY(666f);
+                _config.SetScale(1f);
+                _config.SetOpacity(0.8f);
+                _ui.RefreshTextures();
+            }
+        }
+        
+        private void DrawStyleTab()
+        {
+            DrawPixelSlider("Border Opacity", _config.BorderOpacity, 0f, 1f, v => {
+                _config.SetBorderOpacity(v);
+                _ui.RefreshTextures();
+            }, "{0:F2}");
+            
+            DrawPixelSlider("Fill Opacity", _config.FillOpacity, 0f, 1f, v => {
+                _config.SetFillOpacity(v);
+                _ui.RefreshTextures();
+            }, "{0:F2}");
+            
+            DrawPixelSlider("Pressed Effect", _config.PressedEffectOpacity, 0f, 1f, v => {
+                _config.SetPressedEffectOpacity(v);
+                _ui.RefreshTextures();
+            }, "{0:F2}");
+            
+            DrawPixelSlider("Border Width", _config.BorderWidth, 0.5f, 4f, v => {
+                _config.SetBorderWidth(v);
+                _ui.RefreshTextures();
+            }, "{0:F1}px");
+            
+            DrawPixelSlider("Font Size", _config.FontSize, 8, 20, v => {
+                _config.SetFontSize((int)v);
+                _ui.RefreshTextures();
+            }, "{0:F0}");
+        }
+        
+        private void DrawPixelSlider(string label, float value, float min, float max, System.Action<float> onChange, string format)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, _labelStyle, GUILayout.Width(120));
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(string.Format(format, value), _smallLabelStyle, GUILayout.Width(50));
+            GUILayout.EndHorizontal();
+            
+            float newValue = GUILayout.HorizontalSlider(value, min, max, _sliderStyle, _sliderThumbStyle, GUILayout.Height(20));
+            
+            if (Mathf.Abs(newValue - value) > 0.001f)
+            {
+                onChange(newValue);
+            }
+            
+            GUILayout.Space(4);
+        }
+        
+        private void DrawColorsTab()
+        {
+            GUILayout.Label("Normal Color", _labelStyle);
+            DrawColorSliders("normal");
+            
+            GUILayout.Space(Spacing);
+            
+            GUILayout.Label("Pressed Color", _labelStyle);
+            DrawColorSliders("pressed");
+            
+            GUILayout.Space(Spacing);
+            
+            GUILayout.Label("Border Color", _labelStyle);
+            DrawColorSliders("border");
+            
+            GUILayout.Space(Spacing * 2);
+            
+            // Color preview box
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Preview:", _labelStyle, GUILayout.Width(70));
+            
+            Rect previewRect = GUILayoutUtility.GetRect(80, 40, GUILayout.Width(80));
+            DrawPreviewBox(previewRect, _config.KeyColorNormal, _config.FillOpacity, _config.BorderColor, _config.BorderOpacity);
+            
+            GUILayout.EndHorizontal();
+        }
+        
+        private void DrawColorSliders(string colorType)
+        {
+            Color c;
+            System.Action<Color> setter;
+            
+            switch (colorType)
+            {
+                case "normal": 
+                    c = _config.KeyColorNormal; 
+                    setter = v => _config.SetKeyColorNormal(v);
+                    break;
+                case "pressed": 
+                    c = _config.KeyColorPressed; 
+                    setter = v => _config.SetKeyColorPressed(v);
+                    break;
+                case "border": 
+                    c = _config.BorderColor; 
+                    setter = v => _config.SetBorderColor(v);
+                    break;
+                default: return;
+            }
+            
+            // R
+            GUILayout.BeginHorizontal();
+            GUI.color = new Color(1f, 0.3f, 0.3f);
+            GUILayout.Label("R", _labelStyle, GUILayout.Width(20));
+            GUI.color = Color.white;
+            float newR = GUILayout.HorizontalSlider(c.r, 0f, 1f, _sliderStyle, _sliderThumbStyle);
+            GUILayout.Label($"{newR:F1}", _smallLabelStyle, GUILayout.Width(30));
+            GUILayout.EndHorizontal();
+            
+            // G
+            GUILayout.BeginHorizontal();
+            GUI.color = new Color(0.3f, 1f, 0.3f);
+            GUILayout.Label("G", _labelStyle, GUILayout.Width(20));
+            GUI.color = Color.white;
+            float newG = GUILayout.HorizontalSlider(c.g, 0f, 1f, _sliderStyle, _sliderThumbStyle);
+            GUILayout.Label($"{newG:F1}", _smallLabelStyle, GUILayout.Width(30));
+            GUILayout.EndHorizontal();
+            
+            // B
+            GUILayout.BeginHorizontal();
+            GUI.color = new Color(0.3f, 0.5f, 1f);
+            GUILayout.Label("B", _labelStyle, GUILayout.Width(20));
+            GUI.color = Color.white;
+            float newB = GUILayout.HorizontalSlider(c.b, 0f, 1f, _sliderStyle, _sliderThumbStyle);
+            GUILayout.Label($"{newB:F1}", _smallLabelStyle, GUILayout.Width(30));
+            GUILayout.EndHorizontal();
+            
+            if (newR != c.r || newG != c.g || newB != c.b)
+            {
+                setter(new Color(newR, newG, newB));
+                _ui.RefreshTextures();
+            }
+            
+            GUILayout.Space(4);
+        }
+        
+        private void DrawPreviewBox(Rect rect, Color fill, float fillAlpha, Color border, float borderAlpha)
+        {
             // Border
-            GUI.color = new Color(_config.BorderColor.r, _config.BorderColor.g, _config.BorderColor.b, _config.BorderOpacity);
-            GUI.DrawTexture(new Rect(x, y, size, size), Texture2D.whiteTexture);
+            GUI.color = new Color(border.r, border.g, border.b, borderAlpha);
+            GUI.DrawTexture(rect, _pixelThumbTex);
             
             // Fill
-            GUI.color = new Color(_config.KeyColorNormal.r, _config.KeyColorNormal.g, _config.KeyColorNormal.b, _config.FillOpacity);
-            GUI.DrawTexture(new Rect(x + 2, y + 2, size - 4, size - 4), Texture2D.whiteTexture);
+            GUI.color = new Color(fill.r, fill.g, fill.b, fillAlpha);
+            GUI.DrawTexture(new Rect(rect.x + 3, rect.y + 3, rect.width - 6, rect.height - 6), _pixelSliderTex);
             
             GUI.color = Color.white;
         }
         
-        private void DrawKeyBindMenu()
+        private void DrawKeysTab()
         {
-            float cx = Screen.width / 2 - 150;
-            float cy = Screen.height / 2 - 150;
+            string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
+            KeyCode[] keyCodes = { 
+                _config.KeyUp, _config.KeyDown, _config.KeyLeft, _config.KeyRight, 
+                _config.KeyJump, _config.KeyThrow, _config.KeyGrab 
+            };
             
-            GUI.Box(new Rect(cx, cy, 300, 270), "KEY BINDINGS");
-            
-            var style = new GUIStyle { fontSize = 14, normal = { textColor = Color.white } };
-            var selStyle = new GUIStyle { fontSize = 14, normal = { textColor = new Color(0.9f, 0.7f, 0.2f) } };
-            
-            for (int i = 0; i < _keyBindOpts.Length; i++)
+            for (int i = 0; i < keyNames.Length; i++)
             {
-                float y = cy + 30 + i * 30;
-                string txt = _keyBindOpts[i];
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(keyNames[i], _labelStyle, GUILayout.Width(60));
                 
-                if (i < 7) txt += $": {GetKeyBindingName(i)}";
-                
-                GUI.Label(new Rect(cx + 30, y, 200, 25), (i == _sel ? "> " : "  ") + txt, i == _sel ? selStyle : style);
-            }
-            
-            GUI.Label(new Rect(cx, cy + 240, 300, 25), "Enter:Change | Esc:Back");
-        }
-        
-        private string GetKeyBindingName(int i)
-        {
-            switch (i)
-            {
-                case 0: return _config.KeyUp.ToString();
-                case 1: return _config.KeyDown.ToString();
-                case 2: return _config.KeyLeft.ToString();
-                case 3: return _config.KeyRight.ToString();
-                case 4: return _config.KeyJump.ToString();
-                case 5: return _config.KeyThrow.ToString();
-                case 6: return _config.KeyGrab.ToString();
-                default: return "";
-            }
-        }
-        
-        private void HandleKeyBindInput()
-        {
-            var e = Event.current;
-            if (e.type != EventType.KeyDown) return;
-            
-            // Cancel with Escape
-            if (e.keyCode == KeyCode.Escape)
-            {
-                _waitingForKey = false;
-                _confirmingKey = false;
-                _currentBindingIndex = -1;
-                _pendingKey = KeyCode.None;
-                e.Use();
-                return;
-            }
-            
-            // Ignore navigation keys
-            if (e.keyCode == KeyCode.UpArrow || e.keyCode == KeyCode.DownArrow ||
-                e.keyCode == KeyCode.LeftArrow || e.keyCode == KeyCode.RightArrow ||
-                e.keyCode == KeyCode.Return)
-            {
-                return;
-            }
-            
-            // Get the key pressed
-            KeyCode key = e.keyCode;
-            if (key == KeyCode.None)
-            {
-                if (e.character != '\0')
+                if (GUILayout.Button($"[ {keyCodes[i]} ]", _keyButtonStyle, GUILayout.Height(ButtonHeight - 6)))
                 {
-                    key = CharToKeyCode(e.character);
+                    _waitingForKey = true;
+                    _currentBindingIndex = i;
                 }
-                if (key == KeyCode.None) return;
+                
+                GUILayout.EndHorizontal();
+                GUILayout.Space(2);
             }
             
-            // Store the key and transition to confirming state
-            _pendingKey = key;
-            _waitingForKey = false;
-            _confirmingKey = true;
-            e.Use();
+            GUILayout.Space(Spacing * 2);
+            
+            if (GUILayout.Button("[ RESET TO DEFAULTS ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            {
+                _config.SetKeyUp(KeyCode.W);
+                _config.SetKeyDown(KeyCode.S);
+                _config.SetKeyLeft(KeyCode.A);
+                _config.SetKeyRight(KeyCode.D);
+                _config.SetKeyJump(KeyCode.Space);
+                _config.SetKeyThrow(KeyCode.K);
+                _config.SetKeyGrab(KeyCode.L);
+            }
         }
         
-        private void HandleConfirmInput()
+        private void DrawKeyBindingDialog()
         {
-            var e = Event.current;
-            if (e.type != EventType.KeyDown) return;
+            float cx = Screen.width / 2 - 160;
+            float cy = Screen.height / 2 - 90;
             
-            // Cancel with Escape
-            if (e.keyCode == KeyCode.Escape)
-            {
-                _confirmingKey = false;
-                _waitingForKey = false;
-                _currentBindingIndex = -1;
-                _pendingKey = KeyCode.None;
-                e.Use();
-                return;
-            }
+            GUI.Box(new Rect(cx, cy, 320, 180), "", _windowStyle);
             
-            // Confirm with Enter
-            if (e.keyCode == KeyCode.Return)
+            GUILayout.BeginArea(new Rect(cx + 20, cy + 20, 280, 140));
+            
+            GUILayout.Label("◄ KEY BINDING ►", _headerStyle);
+            GUILayout.Space(15);
+            
+            string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
+            GUILayout.Label($"Press new key for:", _labelStyle);
+            GUILayout.Label($"[ {keyNames[_currentBindingIndex]} ]", _headerStyle);
+            GUILayout.Space(10);
+            
+            GUILayout.Label("Press any key... (Esc to cancel)", _smallLabelStyle);
+            
+            GUILayout.EndArea();
+            
+            HandleKeyInput();
+        }
+        
+        private void DrawConfirmDialog()
+        {
+            float cx = Screen.width / 2 - 160;
+            float cy = Screen.height / 2 - 90;
+            
+            GUI.Box(new Rect(cx, cy, 320, 180), "", _windowStyle);
+            
+            GUILayout.BeginArea(new Rect(cx + 20, cy + 20, 280, 140));
+            
+            GUILayout.Label("◄ CONFIRM ►", _headerStyle);
+            GUILayout.Space(15);
+            
+            string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
+            GUILayout.Label($"Bind {keyNames[_currentBindingIndex]} to:", _labelStyle);
+            GUILayout.Label($"[ {_pendingKey} ]", _headerStyle);
+            GUILayout.Space(15);
+            
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("[ CONFIRM ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 SetKeyBinding(_currentBindingIndex, _pendingKey);
                 _confirmingKey = false;
                 _currentBindingIndex = -1;
                 _pendingKey = KeyCode.None;
                 _config.Save();
-                e.Use();
-                return;
             }
-            
-            // Change key - press another key
-            if (e.keyCode != KeyCode.None && e.keyCode != KeyCode.UpArrow && 
-                e.keyCode != KeyCode.DownArrow && e.keyCode != KeyCode.LeftArrow && 
-                e.keyCode != KeyCode.RightArrow)
+            if (GUILayout.Button("[ CANCEL ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
-                _pendingKey = e.keyCode;
-                e.Use();
-                return;
+                _confirmingKey = false;
+                _waitingForKey = false;
+                _currentBindingIndex = -1;
+                _pendingKey = KeyCode.None;
             }
+            GUILayout.EndHorizontal();
             
-            // Character key
-            if (e.keyCode == KeyCode.None && e.character != '\0')
-            {
-                KeyCode key = CharToKeyCode(e.character);
-                if (key != KeyCode.None)
-                {
-                    _pendingKey = key;
-                    e.Use();
-                }
-            }
+            GUILayout.EndArea();
         }
         
-        private KeyCode CharToKeyCode(char c)
+        private void HandleKeyInput()
         {
-            // Convert character to KeyCode
-            c = char.ToUpper(c);
+            var e = Event.current;
+            if (e.type != EventType.KeyDown) return;
             
-            // Letters
-            if (c >= 'A' && c <= 'Z')
-                return (KeyCode)((int)KeyCode.A + (c - 'A'));
-            
-            // Numbers
-            if (c >= '0' && c <= '9')
-                return (KeyCode)((int)KeyCode.Alpha0 + (c - '0'));
-            
-            // Special keys
-            switch (c)
+            if (e.keyCode == KeyCode.Escape)
             {
-                case ' ': return KeyCode.Space;
-                case '\n': return KeyCode.Return;
-                case '\t': return KeyCode.Tab;
-                case '-': return KeyCode.Minus;
-                case '=': return KeyCode.Equals;
-                case '[': return KeyCode.LeftBracket;
-                case ']': return KeyCode.RightBracket;
-                case '\\': return KeyCode.Backslash;
-                case ';': return KeyCode.Semicolon;
-                case '\'': return KeyCode.Quote;
-                case ',': return KeyCode.Comma;
-                case '.': return KeyCode.Period;
-                case '/': return KeyCode.Slash;
+                _waitingForKey = false;
+                _currentBindingIndex = -1;
+                e.Use();
+                return;
             }
             
-            return KeyCode.None;
+            if (e.keyCode != KeyCode.None && e.keyCode != KeyCode.UpArrow && 
+                e.keyCode != KeyCode.DownArrow && e.keyCode != KeyCode.LeftArrow && 
+                e.keyCode != KeyCode.RightArrow && e.keyCode != KeyCode.Return)
+            {
+                _pendingKey = e.keyCode;
+                _waitingForKey = false;
+                _confirmingKey = true;
+                e.Use();
+            }
         }
         
         private void SetKeyBinding(int index, KeyCode key)
@@ -343,160 +685,16 @@ namespace KeyOverlay
             }
         }
         
-        private float GetColorValue(int i)
+        public void OpenMenu()
         {
-            switch (i)
-            {
-                case 0: return _config.KeyColorNormal.r;
-                case 1: return _config.KeyColorNormal.g;
-                case 2: return _config.KeyColorNormal.b;
-                case 3: return _config.KeyColorPressed.r;
-                case 4: return _config.KeyColorPressed.g;
-                case 5: return _config.KeyColorPressed.b;
-                case 6: return _config.BorderColor.r;
-                case 7: return _config.BorderColor.g;
-                case 8: return _config.BorderColor.b;
-                case 9: return _config.BorderOpacity;
-                case 10: return _config.FillOpacity;
-                case 11: return _config.PressedEffectOpacity;
-                default: return 0;
-            }
+            IsMenuActive = true;
+            _tab = 0;
         }
         
-        private string GetToggle(int i)
+        public void CloseMenu()
         {
-            bool v = false;
-            switch (i)
-            {
-                case 4: v = _config.ShowKeyboard; break;
-                case 5: v = _config.ShowGamepad; break;
-                case 6: v = _config.ShowComboStats; break;
-                case 7: v = _config.ShowKeyNames; break;
-                case 8: v = _config.ShowMovementKeys; break;
-                case 9: v = _config.ShowActionKeys; break;
-            }
-            return $": {(v ? "ON" : "OFF")}";
-        }
-        
-        private void HandleInput()
-        {
-            var e = Event.current;
-            if (e.type != EventType.KeyDown) return;
-            
-            if (e.keyCode == KeyCode.UpArrow) { _sel = (_sel - 1 + GetOptsLength()) % GetOptsLength(); e.Use(); }
-            else if (e.keyCode == KeyCode.DownArrow) { _sel = (_sel + 1) % GetOptsLength(); e.Use(); }
-            else if (e.keyCode == KeyCode.LeftArrow || e.keyCode == KeyCode.RightArrow) { Adjust(e.keyCode == KeyCode.RightArrow ? 1 : -1); e.Use(); }
-            else if (e.keyCode == KeyCode.Return) { Apply(); e.Use(); }
-            else if (e.keyCode == KeyCode.Escape) { CloseMenu(); e.Use(); }
-        }
-        
-        private int GetOptsLength()
-        {
-            if (_page == 0) return _mainOpts.Length;
-            if (_page == 1) return _colorOpts.Length;
-            return _keyBindOpts.Length;
-        }
-        
-        private void Adjust(int dir)
-        {
-            if (_page == 0)
-            {
-                if (_sel == 0) _config.SetScale(_config.Scale + dir * 0.1f);
-                else if (_sel == 1) _config.SetOpacity(_config.Opacity + dir * 0.1f);
-                else if (_sel == 2) _config.SetFontSize(_config.FontSize + dir);
-                else if (_sel == 3) _config.SetBorderWidth(_config.BorderWidth + dir * 0.5f);
-                else if (_sel >= 4 && _sel <= 9) Toggle(_sel);
-            }
-            else if (_page == 1)
-            {
-                AdjustColorValue(_sel, dir * 0.05f);
-            }
-            _ui.RefreshTextures();
-        }
-        
-        private void AdjustColorValue(int i, float delta)
-        {
-            switch (i)
-            {
-                case 0: _config.SetKeyColorNormal(new Color(Clamp01(_config.KeyColorNormal.r + delta), _config.KeyColorNormal.g, _config.KeyColorNormal.b)); break;
-                case 1: _config.SetKeyColorNormal(new Color(_config.KeyColorNormal.r, Clamp01(_config.KeyColorNormal.g + delta), _config.KeyColorNormal.b)); break;
-                case 2: _config.SetKeyColorNormal(new Color(_config.KeyColorNormal.r, _config.KeyColorNormal.g, Clamp01(_config.KeyColorNormal.b + delta))); break;
-                case 3: _config.SetKeyColorPressed(new Color(Clamp01(_config.KeyColorPressed.r + delta), _config.KeyColorPressed.g, _config.KeyColorPressed.b)); break;
-                case 4: _config.SetKeyColorPressed(new Color(_config.KeyColorPressed.r, Clamp01(_config.KeyColorPressed.g + delta), _config.KeyColorPressed.b)); break;
-                case 5: _config.SetKeyColorPressed(new Color(_config.KeyColorPressed.r, _config.KeyColorPressed.g, Clamp01(_config.KeyColorPressed.b + delta))); break;
-                case 6: _config.SetBorderColor(new Color(Clamp01(_config.BorderColor.r + delta), _config.BorderColor.g, _config.BorderColor.b)); break;
-                case 7: _config.SetBorderColor(new Color(_config.BorderColor.r, Clamp01(_config.BorderColor.g + delta), _config.BorderColor.b)); break;
-                case 8: _config.SetBorderColor(new Color(_config.BorderColor.r, _config.BorderColor.g, Clamp01(_config.BorderColor.b + delta))); break;
-                case 9: _config.SetBorderOpacity(_config.BorderOpacity + delta); break;
-                case 10: _config.SetFillOpacity(_config.FillOpacity + delta); break;
-                case 11: _config.SetPressedEffectOpacity(_config.PressedEffectOpacity + delta); break;
-            }
-        }
-        
-        private float Clamp01(float v) => Mathf.Clamp(v, 0f, 1f);
-        
-        private void Toggle(int i)
-        {
-            switch (i)
-            {
-                case 4: _config.SetShowKeyboard(!_config.ShowKeyboard); break;
-                case 5: _config.SetShowGamepad(!_config.ShowGamepad); break;
-                case 6: _config.SetShowComboStats(!_config.ShowComboStats); break;
-                case 7: _config.SetShowKeyNames(!_config.ShowKeyNames); break;
-                case 8: _config.SetShowMovementKeys(!_config.ShowMovementKeys); break;
-                case 9: _config.SetShowActionKeys(!_config.ShowActionKeys); break;
-            }
-        }
-        
-        private void Apply()
-        {
-            if (_page == 0) // Main menu
-            {
-                if (_sel == 10) // Color Settings
-                {
-                    _page = 1;
-                    _sel = 0;
-                }
-                else if (_sel == 11) // Key Bindings
-                {
-                    _page = 2;
-                    _sel = 0;
-                }
-                else if (_sel == 12) // Reset Pos
-                {
-                    _config.SetPanelX(200f);
-                    _config.SetPanelY(100f);
-                }
-                else if (_sel == 13) // Reset Stats
-                {
-                    _input.ResetStats();
-                }
-            }
-            else if (_page == 1) // Color menu
-            {
-                if (_sel == 12) // Back
-                {
-                    _page = 0;
-                    _sel = 10;
-                }
-            }
-            else if (_page == 2) // Key Bindings menu
-            {
-                if (_sel == 7) // Back
-                {
-                    _page = 0;
-                    _sel = 11;
-                }
-                else if (_sel < 7) // Change key binding
-                {
-                    _waitingForKey = true;
-                    _currentBindingIndex = _sel;
-                }
-            }
+            IsMenuActive = false;
             _config.Save();
         }
-        
-        public void OpenMenu() { IsMenuActive = true; _page = 0; _sel = 0; }
-        public void CloseMenu() { IsMenuActive = false; _page = 0; _config.Save(); }
     }
 }
