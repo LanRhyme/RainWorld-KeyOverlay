@@ -69,6 +69,7 @@ namespace KeyOverlay
             { "Grab", new[] { "Grab", "抓取" } },
             { "Press any key...", new[] { "Press any key...", "请按键..." } },
             { "Press Enter to confirm", new[] { "Press Enter to confirm", "按回车确认" } },
+            { "RESET TO DEFAULTS", new[] { "RESET TO DEFAULTS", "恢复默认" } },
             
             // Menu
             { "Key Overlay Settings", new[] { "Key Overlay Settings", "按键显示设置" } },

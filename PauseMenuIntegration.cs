@@ -675,7 +675,7 @@ namespace KeyOverlay
             
             GUILayout.Space(Spacing);
             
-            if (GUILayout.Button("[ " + Localization.Get("RESET STATS") + " ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
+            if (GUILayout.Button("[ " + Localization.Get("RESET TO DEFAULTS") + " ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 _config.SetKeyUp(KeyCode.W);
                 _config.SetKeyDown(KeyCode.S);
