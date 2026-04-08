@@ -20,6 +20,12 @@
       <Private>False</Private>
     </Reference>
     
+    <!-- Reference to PUBLIC-Assembly-CSharp for Remix API -->
+    <Reference Include="PUBLIC-Assembly-CSharp">
+      <HintPath>D:\Program Files\steam\steamapps\common\Rain World\BepInEx\utils\PUBLIC-Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    
     <!-- Reference to BepInEx core -->
     <Reference Include="BepInEx">
       <HintPath>D:\Program Files\steam\steamapps\common\Rain World\BepInEx\core\BepInEx.dll</HintPath>

@@ -64,29 +64,32 @@ namespace KeyOverlay
             // Get configured key bindings from ConfigWrapper
             var cfg = ConfigWrapper.Instance;
             
-            // Unity Input - use configured keys or fallback to hardcoded
+            // Unity Input - use configured keys + fallback to arrow keys for movement
             bool up, down, left, right, jump, grab, throw_;
             
             if (cfg != null)
             {
-                up = Input.GetKey(cfg.KeyUp) || Input.GetKey(KeyCode.UpArrow);
-                down = Input.GetKey(cfg.KeyDown) || Input.GetKey(KeyCode.DownArrow);
-                left = Input.GetKey(cfg.KeyLeft) || Input.GetKey(KeyCode.LeftArrow);
-                right = Input.GetKey(cfg.KeyRight) || Input.GetKey(KeyCode.RightArrow);
-                jump = Input.GetKey(cfg.KeyJump);
-                grab = Input.GetKey(cfg.KeyGrab);
-                throw_ = Input.GetKey(cfg.KeyThrow);
+                // Movement: configured key OR arrow keys OR WASD (multiple fallbacks)
+                up = Input.GetKey(cfg.KeyUp) || Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W);
+                down = Input.GetKey(cfg.KeyDown) || Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S);
+                left = Input.GetKey(cfg.KeyLeft) || Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A);
+                right = Input.GetKey(cfg.KeyRight) || Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D);
+                
+                // Actions: configured key OR common alternatives
+                jump = Input.GetKey(cfg.KeyJump) || Input.GetKey(KeyCode.Space);
+                grab = Input.GetKey(cfg.KeyGrab) || Input.GetKey(KeyCode.LeftShift);
+                throw_ = Input.GetKey(cfg.KeyThrow) || Input.GetKey(KeyCode.C);
             }
-            else
+else
             {
-                // Fallback hardcoded keys
+                // Fallback hardcoded - WASD + arrow keys + common actions
                 up = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow);
                 down = Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow);
                 left = Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow);
                 right = Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow);
                 jump = Input.GetKey(KeyCode.Space);
-                grab = Input.GetKey(KeyCode.LeftShift);
-                throw_ = Input.GetKey(KeyCode.C);
+                grab = Input.GetKey(KeyCode.L) || Input.GetKey(KeyCode.LeftShift);
+                throw_ = Input.GetKey(KeyCode.K) || Input.GetKey(KeyCode.C);
             }
             
             UpdateKey("Up", up);

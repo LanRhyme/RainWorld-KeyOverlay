@@ -10,6 +10,7 @@ namespace KeyOverlay
     /// Main BepInEx plugin - Author: LanRhyme
     /// </summary>
     [BepInPlugin("keyoverlay", "Key Overlay", "1.0.0")]
+    [BepInDependency("rwremix", BepInDependency.DependencyFlags.SoftDependency)]
     public class KeyOverlayPlugin : BaseUnityPlugin
     {
         internal static KeyOverlayPlugin Instance;
@@ -60,6 +61,9 @@ namespace KeyOverlay
             
             Log.LogInfo("[KeyOverlay] Starting...");
             
+            // Find correct namespace for Remix API
+            NamespaceFinder.FindTypes();
+            
             try
             {
                 InitConfig();
@@ -67,6 +71,10 @@ namespace KeyOverlay
                 _inputMonitor = new InputMonitor();
                 _ui = new KeyOverlayUI(_configWrapper, _inputMonitor);
                 _pauseMenu = new PauseMenuIntegration(_configWrapper, _ui, _inputMonitor);
+                
+                // Register Remix menu - temporarily disabled until we find correct API
+                // _remixMenu = new KeyOverlayRemixMenu(this, _configWrapper);
+                
                 _initialized = true;
                 Log.LogInfo("[KeyOverlay] Loaded successfully!");
             }
@@ -78,8 +86,8 @@ namespace KeyOverlay
         
         private void InitConfig()
         {
-            ConfigPanelX = Config.Bind("Display", "PanelX", 200f);
-            ConfigPanelY = Config.Bind("Display", "PanelY", 100f);
+            ConfigPanelX = Config.Bind("Display", "PanelX", 136f);
+            ConfigPanelY = Config.Bind("Display", "PanelY", 666f);
             ConfigScale = Config.Bind("Display", "Scale", 1.0f);
             ConfigOpacity = Config.Bind("Display", "Opacity", 0.8f);
             ConfigShowKeyboard = Config.Bind("Features", "ShowKeyboard", true);
@@ -89,26 +97,26 @@ namespace KeyOverlay
             ConfigShowMovementKeys = Config.Bind("Keys", "MovementKeys", true);
             ConfigShowActionKeys = Config.Bind("Keys", "ActionKeys", true);
             
-            // Color settings - default pixel-art style colors
-            ConfigKeyColorNormal = Config.Bind("Colors", "KeyColorNormal", new Color(0.2f, 0.2f, 0.25f));
-            ConfigKeyColorPressed = Config.Bind("Colors", "KeyColorPressed", new Color(0.95f, 0.75f, 0.25f));
-            ConfigBorderColor = Config.Bind("Colors", "BorderColor", new Color(0.1f, 0.1f, 0.12f));
-            ConfigBorderOpacity = Config.Bind("Colors", "BorderOpacity", 0.9f);
-            ConfigFillOpacity = Config.Bind("Colors", "FillOpacity", 0.7f);
-            ConfigPressedEffectOpacity = Config.Bind("Colors", "PressedEffectOpacity", 1.0f);
+            // Color settings - user's custom colors (white theme)
+            ConfigKeyColorNormal = Config.Bind("Colors", "KeyColorNormal", new Color(1f, 1f, 1f));
+            ConfigKeyColorPressed = Config.Bind("Colors", "KeyColorPressed", new Color(1f, 1f, 1f));
+            ConfigBorderColor = Config.Bind("Colors", "BorderColor", new Color(1f, 1f, 1f));
+            ConfigBorderOpacity = Config.Bind("Colors", "BorderOpacity", 0.45f);
+            ConfigFillOpacity = Config.Bind("Colors", "FillOpacity", 0.1f);
+            ConfigPressedEffectOpacity = Config.Bind("Colors", "PressedEffectOpacity", 0.75f);
             
             // Style settings
             ConfigFontSize = Config.Bind("Style", "FontSize", 11);
             ConfigBorderWidth = Config.Bind("Style", "BorderWidth", 1.5f);
             
-            // Key bindings - default Rain World keys
+            // Key bindings - user's WASD configuration
             ConfigKeyUp = Config.Bind("KeyBindings", "Up", "W");
             ConfigKeyDown = Config.Bind("KeyBindings", "Down", "S");
             ConfigKeyLeft = Config.Bind("KeyBindings", "Left", "A");
             ConfigKeyRight = Config.Bind("KeyBindings", "Right", "D");
             ConfigKeyJump = Config.Bind("KeyBindings", "Jump", "Space");
-            ConfigKeyThrow = Config.Bind("KeyBindings", "Throw", "C");
-            ConfigKeyGrab = Config.Bind("KeyBindings", "Grab", "LeftShift");
+            ConfigKeyThrow = Config.Bind("KeyBindings", "Throw", "K");
+            ConfigKeyGrab = Config.Bind("KeyBindings", "Grab", "L");
         }
         
         private void Update()
@@ -179,14 +187,14 @@ namespace KeyOverlay
         public int FontSize => p?.ConfigFontSize?.Value ?? 11;
         public float BorderWidth => p?.ConfigBorderWidth?.Value ?? 1.5f;
         
-        // Key binding properties (returns KeyCode)
+        // Key binding properties (returns KeyCode) - user's WASD defaults
         public KeyCode KeyUp => ParseKeyCode(p?.ConfigKeyUp?.Value, KeyCode.W);
         public KeyCode KeyDown => ParseKeyCode(p?.ConfigKeyDown?.Value, KeyCode.S);
         public KeyCode KeyLeft => ParseKeyCode(p?.ConfigKeyLeft?.Value, KeyCode.A);
         public KeyCode KeyRight => ParseKeyCode(p?.ConfigKeyRight?.Value, KeyCode.D);
         public KeyCode KeyJump => ParseKeyCode(p?.ConfigKeyJump?.Value, KeyCode.Space);
-        public KeyCode KeyThrow => ParseKeyCode(p?.ConfigKeyThrow?.Value, KeyCode.C);
-        public KeyCode KeyGrab => ParseKeyCode(p?.ConfigKeyGrab?.Value, KeyCode.LeftShift);
+        public KeyCode KeyThrow => ParseKeyCode(p?.ConfigKeyThrow?.Value, KeyCode.K);
+        public KeyCode KeyGrab => ParseKeyCode(p?.ConfigKeyGrab?.Value, KeyCode.L);
         
         private KeyCode ParseKeyCode(string name, KeyCode defaultKey)
         {
