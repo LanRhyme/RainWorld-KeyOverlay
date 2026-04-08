@@ -1,0 +1,7 @@
+D:\AndroidStudioProjects\RainWorld-KeyOverlay\obj\Release\KeyOverlay.csproj.AssemblyReference.cache
+D:\AndroidStudioProjects\RainWorld-KeyOverlay\obj\Release\KeyOverlay.GeneratedMSBuildEditorConfig.editorconfig
+D:\AndroidStudioProjects\RainWorld-KeyOverlay\obj\Release\KeyOverlay.AssemblyInfoInputs.cache
+D:\AndroidStudioProjects\RainWorld-KeyOverlay\obj\Release\KeyOverlay.AssemblyInfo.cs
+D:\AndroidStudioProjects\RainWorld-KeyOverlay\obj\Release\KeyOverlay.csproj.CoreCompileInputs.cache
+D:\AndroidStudioProjects\RainWorld-KeyOverlay\bin\Release\KeyOverlay.dll
+D:\AndroidStudioProjects\RainWorld-KeyOverlay\obj\Release\KeyOverlay.dll

@@ -1,0 +1,132 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace KeyOverlay
+{
+    public class InputMonitor
+    {
+        public Dictionary<string, KeyState> KeyStates { get; private set; }
+        public int JumpCombo { get; private set; }
+        public int ThrowCombo { get; private set; }
+        public int GrabCombo { get; private set; }
+        public int TotalInputs { get; private set; }
+        public bool IsGamepadActive { get; private set; }
+        
+        private float _lastInputTime;
+        
+        public InputMonitor()
+        {
+            try
+            {
+                KeyStates = new Dictionary<string, KeyState>();
+                
+                // Initialize basic keys
+                string[] keys = { "Up", "Down", "Left", "Right", "Jump", "Grab", "Throw", "PickUp" };
+                foreach (var k in keys) KeyStates[k] = new KeyState(k);
+                
+                // Initialize gamepad keys
+                string[] gpKeys = { "GP_A", "GP_B", "GP_X", "GP_Y", "GP_LeftStick" };
+                foreach (var k in gpKeys) KeyStates[k] = new KeyState(k);
+            }
+            catch (Exception ex)
+            {
+                KeyOverlayPlugin.Log?.LogError($"[KeyOverlay] InputMonitor init error: {ex.Message}");
+            }
+        }
+        
+        public void Update()
+        {
+            try
+            {
+                // Detect gamepad
+                var joysticks = Input.GetJoystickNames();
+                IsGamepadActive = joysticks.Length > 0 && !string.IsNullOrEmpty(joysticks[0]);
+                
+                // Keyboard movement
+                UpdateKey("Left", Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow));
+                UpdateKey("Right", Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow));
+                UpdateKey("Up", Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow));
+                UpdateKey("Down", Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow));
+                
+                // Keyboard actions
+                UpdateKey("Jump", Input.GetKey(KeyCode.Space));
+                UpdateKey("Grab", Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.E));
+                UpdateKey("Throw", Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.Q));
+                UpdateKey("PickUp", Input.GetKey(KeyCode.E));
+                
+                // Gamepad
+                UpdateKey("GP_A", Input.GetKey(KeyCode.JoystickButton0));
+                UpdateKey("GP_B", Input.GetKey(KeyCode.JoystickButton1));
+                UpdateKey("GP_X", Input.GetKey(KeyCode.JoystickButton2));
+                UpdateKey("GP_Y", Input.GetKey(KeyCode.JoystickButton3));
+                
+                // Combo reset
+                if (Time.time - _lastInputTime > 0.5f)
+                {
+                    JumpCombo = 0;
+                    ThrowCombo = 0;
+                    GrabCombo = 0;
+                }
+            }
+            catch { }
+        }
+        
+        private void UpdateKey(string name, bool pressed)
+        {
+            if (!KeyStates.ContainsKey(name)) return;
+            
+            var state = KeyStates[name];
+            bool wasPressed = state.IsPressed;
+            state.Update(pressed);
+            
+            if (pressed && !wasPressed)
+            {
+                TotalInputs++;
+                _lastInputTime = Time.time;
+                
+                if (name == "Jump" || name == "GP_A") JumpCombo++;
+                else if (name == "Throw" || name == "GP_B") ThrowCombo++;
+                else if (name == "Grab" || name == "GP_X") GrabCombo++;
+            }
+        }
+        
+        public KeyState GetKeyState(string name)
+        {
+            return KeyStates.ContainsKey(name) ? KeyStates[name] : null;
+        }
+        
+        public void ResetStats()
+        {
+            JumpCombo = 0;
+            ThrowCombo = 0;
+            GrabCombo = 0;
+            TotalInputs = 0;
+        }
+    }
+    
+    public class KeyState
+    {
+        public string Name { get; private set; }
+        public bool IsPressed { get; private set; }
+        public bool WasPressed { get; private set; }
+        public float PressDuration { get; private set; }
+        public Vector2 StickPosition { get; set; }
+        
+        public KeyState(string name)
+        {
+            Name = name;
+            IsPressed = false;
+            WasPressed = false;
+            PressDuration = 0f;
+            StickPosition = Vector2.zero;
+        }
+        
+        public void Update(bool pressed)
+        {
+            WasPressed = IsPressed;
+            IsPressed = pressed;
+            PressDuration = pressed ? PressDuration + Time.deltaTime : 0f;
+        }
+    }
+}
