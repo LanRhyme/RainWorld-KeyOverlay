@@ -36,6 +36,10 @@ if exist "%GAME_PATH%\%MOD_DIR%" (
 mkdir "%GAME_PATH%\%MOD_DIR%\plugins"
 copy /Y "%WORKSHOP_DIR%\plugins\KeyOverlay.dll" "%GAME_PATH%\%MOD_DIR%\plugins\"
 copy /Y "%WORKSHOP_DIR%\modinfo.json" "%GAME_PATH%\%MOD_DIR%\"
+if exist "%WORKSHOP_DIR%\Cubic_11.ttf" (
+    copy /Y "%WORKSHOP_DIR%\Cubic_11.ttf" "%GAME_PATH%\%MOD_DIR%\"
+    echo     Cubic_11.ttf copied!
+)
 if exist "%WORKSHOP_DIR%\thumbnail.png" (
     copy /Y "%WORKSHOP_DIR%\thumbnail.png" "%GAME_PATH%\%MOD_DIR%\"
     echo     thumbnail.png copied!

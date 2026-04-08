@@ -132,6 +132,12 @@ else
             return KeyStates.ContainsKey(name) ? KeyStates[name] : null;
         }
         
+        public bool IsKeyPressed(string name)
+        {
+            var state = GetKeyState(name);
+            return state != null && state.IsPressed;
+        }
+        
         public void ResetStats()
         {
             JumpCombo = 0;

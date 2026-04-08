@@ -21,6 +21,11 @@ namespace KeyOverlay
         private const string ICON_GRAB = "■";  // Grab icon
         private const string ICON_PICKUP = "▲"; // PickUp icon (same as up arrow)
         
+        // Joystick indicator state
+        private Vector2 _joystickPos = Vector2.zero; // Current joystick position (-1 to 1)
+        private Vector2 _joystickSmoothPos = Vector2.zero; // Smoothed position
+        private float _joystickSmoothSpeed = 12f; // Smoothing speed
+        
         public KeyOverlayUI(ConfigWrapper config, InputMonitor input)
         {
             _config = config;
@@ -84,6 +89,22 @@ namespace KeyOverlay
                 DrawKey(throwX, y + keySize + spacing, keySize, borderWidth, "Throw", ICON_THROW);
             }
             
+            // Joystick indicator (right side of keys - no overlap)
+            if (_config.ShowKeyboard)
+            {
+                // Calculate position: right edge of keys + spacing + half joystick radius
+                float keyPanelRightEdge = x + 3 * (keySize + spacing) + keySize;
+                float joystickRadius = keySize * 0.9f;
+                float joystickX = keyPanelRightEdge + spacing * 2 + joystickRadius;
+                
+                // Vertically centered with key panel (2 rows)
+                float keyPanelHeight = 2 * keySize + spacing;
+                float joystickY = y + keyPanelHeight / 2;
+                
+                float joystickSize = keySize * 1.8f;
+                DrawJoystickIndicator(joystickX, joystickY, joystickSize, s);
+            }
+            
             // Combo stats
             if (_config.ShowComboStats)
             {
@@ -95,9 +116,110 @@ namespace KeyOverlay
             }
             
             // Drag handling
-            float totalWidth = 5 * (keySize + spacing);
+            float totalWidth = 7 * (keySize + spacing);
             float totalHeight = 2.2f * (keySize + spacing);
             HandleDrag(x, y, totalWidth, totalHeight);
+        }
+        
+        private void DrawJoystickIndicator(float cx, float cy, float size, float scale)
+        {
+            float panelAlpha = _config.Opacity;
+            
+            // Get movement input state (using user's configured key bindings)
+            bool up = _input.IsKeyPressed("Up");
+            bool down = _input.IsKeyPressed("Down");
+            bool left = _input.IsKeyPressed("Left");
+            bool right = _input.IsKeyPressed("Right");
+            
+            // Calculate target joystick position (-1 to 1)
+            // Unity GUI: y=0 at top, y increases downward
+            // So: up -> y decreases (moves toward top), down -> y increases (moves toward bottom)
+            Vector2 targetPos = Vector2.zero;
+            if (up) targetPos.y -= 1;  // Move toward top (y decreases)
+            if (down) targetPos.y += 1; // Move toward bottom (y increases)
+            if (left) targetPos.x -= 1;
+            if (right) targetPos.x += 1;
+            
+            // Normalize diagonal movement
+            if (targetPos.magnitude > 1f)
+                targetPos.Normalize();
+            
+            // Smooth interpolation
+            _joystickSmoothPos = Vector2.Lerp(_joystickSmoothPos, targetPos, Time.deltaTime * _joystickSmoothSpeed);
+            
+            // Draw outer circle (background)
+            float outerRadius = size / 2;
+            float pixelSize = 2 * scale; // Pixel size for pixelated look
+            
+            Color borderColor = _config.BorderColor;
+            float borderAlpha = _config.BorderOpacity * panelAlpha;
+            Color borderCol = new Color(borderColor.r, borderColor.g, borderColor.b, borderAlpha);
+            
+            Color fillColor = _config.KeyColorNormal;
+            float fillAlpha = _config.FillOpacity * panelAlpha;
+            Color fillCol = new Color(fillColor.r, fillColor.g, fillColor.b, fillAlpha);
+            
+            // Draw pixelated outer circle
+            DrawPixelCircle(cx, cy, outerRadius, pixelSize, borderCol, fillCol, true);
+            
+            // Draw inner circle (joystick position indicator)
+            float innerRadius = size / 5;
+            float innerOffset = outerRadius - innerRadius - 2 * scale;
+            float innerCx = cx + _joystickSmoothPos.x * innerOffset;
+            float innerCy = cy + _joystickSmoothPos.y * innerOffset;
+            
+            // Inner circle color (highlighted when moving)
+            Color innerCol = (up || down || left || right) ? _config.KeyColorPressed : borderColor;
+            float innerAlpha = (up || down || left || right) ? _config.PressedEffectOpacity : borderAlpha;
+            Color innerBorderCol = new Color(innerCol.r, innerCol.g, innerCol.b, innerAlpha);
+            Color innerFillCol = new Color(innerCol.r, innerCol.g, innerCol.b, innerAlpha * 0.8f);
+            
+            DrawPixelCircle(innerCx, innerCy, innerRadius, pixelSize, innerBorderCol, innerFillCol, false);
+            
+            GUI.color = Color.white;
+        }
+        
+        private void DrawPixelCircle(float cx, float cy, float radius, float pixelSize, Color borderColor, Color fillColor, bool fill)
+        {
+            // Draw pixelated circle using midpoint algorithm
+            int r = Mathf.RoundToInt(radius / pixelSize);
+            int cxInt = Mathf.RoundToInt(cx / pixelSize);
+            int cyInt = Mathf.RoundToInt(cy / pixelSize);
+            
+            // Draw filled circle if needed
+            if (fill)
+            {
+                GUI.color = fillColor;
+                for (int py = -r; py <= r; py++)
+                {
+                    for (int px = -r; px <= r; px++)
+                    {
+                        if (px * px + py * py <= r * r)
+                        {
+                            float drawX = (cxInt + px) * pixelSize;
+                            float drawY = (cyInt + py) * pixelSize;
+                            GUI.DrawTexture(new Rect(drawX, drawY, pixelSize, pixelSize), _whiteTex);
+                        }
+                    }
+                }
+            }
+            
+            // Draw border (outer edge)
+            GUI.color = borderColor;
+            for (int py = -r; py <= r; py++)
+            {
+                for (int px = -r; px <= r; px++)
+                {
+                    int distSq = px * px + py * py;
+                    // Draw border pixels (outer ring)
+                    if (distSq <= r * r && distSq > (r - 1) * (r - 1))
+                    {
+                        float drawX = (cxInt + px) * pixelSize;
+                        float drawY = (cyInt + py) * pixelSize;
+                        GUI.DrawTexture(new Rect(drawX, drawY, pixelSize, pixelSize), _whiteTex);
+                    }
+                }
+            }
         }
         
         private void DrawKey(float x, float y, float size, float borderWidth, string keyName, string icon)
@@ -142,14 +264,17 @@ namespace KeyOverlay
                 Color textColor = pressed ? new Color(0.1f, 0.1f, 0.1f) : Color.white;
                 GUI.color = new Color(textColor.r, textColor.g, textColor.b, panelAlpha);
                 
-                // Use built-in label style for pixel icons
+                // Use built-in label style for pixel icons or key names
                 var iconStyle = new GUIStyle(GUI.skin.label)
                 {
                     fontSize = _config.FontSize,
                     alignment = TextAnchor.MiddleCenter,
                     normal = { textColor = GUI.color }
                 };
-                GUI.Label(new Rect(x, y, size, size), icon, iconStyle);
+                
+                // Get display name (icon or key name based on setting)
+                string displayText = _config.GetKeyDisplayName(keyName);
+                GUI.Label(new Rect(x, y, size, size), displayText, iconStyle);
             }
             
             GUI.color = Color.white;

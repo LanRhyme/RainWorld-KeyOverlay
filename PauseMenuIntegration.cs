@@ -1,9 +1,10 @@
 using UnityEngine;
+using System.IO;
 
 namespace KeyOverlay
 {
     /// <summary>
-    /// F1 Settings Menu - Enhanced Pixel-style UI with mouse support
+    /// F1 Settings Menu - Draggable Pixel-style UI with custom font
     /// Author: LanRhyme
     /// </summary>
     public class PauseMenuIntegration
@@ -26,15 +27,21 @@ namespace KeyOverlay
         private const float WindowHeight = 520f;
         private const float ButtonHeight = 32f;
         private const float Spacing = 8f;
+        private const float TitleBarHeight = 30f;
         
-        // Pixel color palette (Rain World inspired)
+        // Window position (draggable)
+        private float _windowX = -1f;
+        private float _windowY = -1f;
+        private bool _isDragging = false;
+        private Vector2 _dragOffset;
+        
+        // Pixel color palette
         private static readonly Color PixelBg = new Color(0.08f, 0.08f, 0.1f);
         private static readonly Color PixelBgLight = new Color(0.12f, 0.12f, 0.15f);
         private static readonly Color PixelBorder = new Color(0.25f, 0.25f, 0.28f);
-        private static readonly Color PixelHighlight = new Color(1f, 0.82f, 0.35f); // Yellow-gold
+        private static readonly Color PixelHighlight = new Color(1f, 0.82f, 0.35f);
         private static readonly Color PixelText = new Color(0.95f, 0.95f, 0.95f);
         private static readonly Color PixelTextDim = new Color(0.6f, 0.6f, 0.65f);
-        private static readonly Color PixelAccent = new Color(0.4f, 0.35f, 0.25f);
         
         // Styles
         private GUIStyle _windowStyle;
@@ -47,7 +54,11 @@ namespace KeyOverlay
         private GUIStyle _headerStyle;
         private GUIStyle _smallLabelStyle;
         private GUIStyle _keyButtonStyle;
+        private GUIStyle _titleBarStyle;
         private bool _stylesInitialized = false;
+        
+        // Custom font
+        private Font _pixelFont;
         
         // Textures
         private Texture2D _pixelBorderTex;
@@ -55,12 +66,20 @@ namespace KeyOverlay
         private Texture2D _pixelButtonHoverTex;
         private Texture2D _pixelSliderTex;
         private Texture2D _pixelThumbTex;
+        private Texture2D _whiteTexture;
         
         public PauseMenuIntegration(ConfigWrapper c, KeyOverlayUI u, InputMonitor i)
         {
             _config = c;
             _ui = u;
             _input = i;
+            
+            // Initialize window position to center
+            if (_windowX < 0)
+            {
+                _windowX = (Screen.width - WindowWidth) / 2;
+                _windowY = (Screen.height - WindowHeight) / 2;
+            }
         }
         
         private void InitStyles()
@@ -68,27 +87,34 @@ namespace KeyOverlay
             if (_stylesInitialized) return;
             _stylesInitialized = true;
             
+            LoadCustomFont();
             CreatePixelTextures();
             
-            // Window - dark with pixel border
+            // White texture for color preview
+            _whiteTexture = new Texture2D(1, 1);
+            _whiteTexture.SetPixel(0, 0, Color.white);
+            _whiteTexture.Apply();
+            
+            // Window style
             _windowStyle = new GUIStyle();
             _windowStyle.normal.background = _pixelBorderTex;
             _windowStyle.border = new RectOffset(4, 4, 4, 4);
             
-            // Label - clean pixel text
+            // Label with custom font
             _labelStyle = new GUIStyle();
+            _labelStyle.font = _pixelFont;
             _labelStyle.fontSize = 14;
             _labelStyle.normal.textColor = PixelText;
             _labelStyle.alignment = TextAnchor.MiddleLeft;
-            _labelStyle.wordWrap = false;
             
-            // Small label for values
+            // Small label
             _smallLabelStyle = new GUIStyle(_labelStyle);
             _smallLabelStyle.fontSize = 12;
             _smallLabelStyle.normal.textColor = PixelTextDim;
             
-            // Button - pixel border style
+            // Button
             _buttonStyle = new GUIStyle();
+            _buttonStyle.font = _pixelFont;
             _buttonStyle.fontSize = 13;
             _buttonStyle.normal.background = _pixelButtonTex;
             _buttonStyle.normal.textColor = PixelText;
@@ -100,18 +126,16 @@ namespace KeyOverlay
             _buttonStyle.padding = new RectOffset(10, 10, 6, 6);
             _buttonStyle.alignment = TextAnchor.MiddleCenter;
             
-            // Key button - for key bindings
+            // Key button
             _keyButtonStyle = new GUIStyle(_buttonStyle);
             _keyButtonStyle.fontSize = 12;
             _keyButtonStyle.normal.background = _pixelSliderTex;
-            _keyButtonStyle.hover.background = _pixelButtonHoverTex;
             
             // Toggle
             _toggleStyle = new GUIStyle();
+            _toggleStyle.font = _pixelFont;
             _toggleStyle.fontSize = 13;
             _toggleStyle.normal.textColor = PixelText;
-            _toggleStyle.hover.textColor = PixelHighlight;
-            _toggleStyle.alignment = TextAnchor.MiddleLeft;
             
             // Slider
             _sliderStyle = new GUIStyle();
@@ -131,24 +155,60 @@ namespace KeyOverlay
             _tabButtonStyle.fontSize = 12;
             _tabButtonStyle.padding = new RectOffset(8, 8, 5, 5);
             
-            // Header - golden pixel title
+            // Header
             _headerStyle = new GUIStyle();
+            _headerStyle.font = _pixelFont;
             _headerStyle.fontSize = 18;
             _headerStyle.fontStyle = FontStyle.Bold;
             _headerStyle.normal.textColor = PixelHighlight;
             _headerStyle.alignment = TextAnchor.MiddleCenter;
+            
+            // Title bar (draggable area)
+            _titleBarStyle = new GUIStyle();
+            _titleBarStyle.font = _pixelFont;
+            _titleBarStyle.fontSize = 14;
+            _titleBarStyle.fontStyle = FontStyle.Bold;
+            _titleBarStyle.normal.textColor = PixelHighlight;
+            _titleBarStyle.alignment = TextAnchor.MiddleCenter;
+        }
+        
+        private void LoadCustomFont()
+        {
+            // Unity's Font class cannot load TTF directly from file path
+            // Use system fonts with pixel-friendly settings
+            
+            string[] pixelFontNames = {
+                "Cubic_11",  // If installed on system
+                "Consolas",  // Windows pixel-friendly font
+                "Courier New",
+                "Lucida Console",
+                "Arial"
+            };
+            
+            foreach (string fontName in pixelFontNames)
+            {
+                try
+                {
+                    _pixelFont = Font.CreateDynamicFontFromOSFont(fontName, 14);
+                    if (_pixelFont != null)
+                    {
+                        Debug.Log($"[KeyOverlay] Using font: {fontName}");
+                        return;
+                    }
+                }
+                catch { }
+            }
+            
+            // Fallback: use Unity's default font
+            _pixelFont = GUI.skin.font;
+            Debug.Log("[KeyOverlay] Using default GUI font");
         }
         
         private void CreatePixelTextures()
         {
-            // Pixel border texture (9-slice compatible)
             _pixelBorderTex = CreatePixelBorderTexture(PixelBg, PixelBorder, 16);
-            
-            // Button textures
             _pixelButtonTex = CreatePixelButtonTexture(PixelBgLight, PixelBorder, false);
             _pixelButtonHoverTex = CreatePixelButtonTexture(new Color(0.18f, 0.18f, 0.22f), PixelHighlight, true);
-            
-            // Slider textures
             _pixelSliderTex = CreateSolidTexture(new Color(0.2f, 0.2f, 0.24f), 4);
             _pixelThumbTex = CreateSolidTexture(PixelHighlight, 4);
         }
@@ -156,7 +216,7 @@ namespace KeyOverlay
         private Texture2D CreatePixelBorderTexture(Color fill, Color border, int size)
         {
             Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Point; // Pixel perfect!
+            tex.filterMode = FilterMode.Point;
             
             Color[] pixels = new Color[size * size];
             int borderSize = 2;
@@ -184,22 +244,15 @@ namespace KeyOverlay
             
             Color[] pixels = new Color[size * size];
             
-            // Create pixelated button with beveled edges
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
                     Color c = fill;
-                    
-                    // Top edge lighter
                     if (y == 0 || y == 1) c = highlight ? border : new Color(fill.r * 1.3f, fill.g * 1.3f, fill.b * 1.3f);
-                    // Bottom edge darker
                     else if (y == size - 1 || y == size - 2) c = new Color(fill.r * 0.7f, fill.g * 0.7f, fill.b * 0.7f);
-                    // Left edge lighter
                     else if (x == 0 || x == 1) c = highlight ? border : new Color(fill.r * 1.2f, fill.g * 1.2f, fill.b * 1.2f);
-                    // Right edge darker
                     else if (x == size - 1 || x == size - 2) c = new Color(fill.r * 0.8f, fill.g * 0.8f, fill.b * 0.8f);
-                    
                     pixels[y * size + x] = c;
                 }
             }
@@ -229,6 +282,9 @@ namespace KeyOverlay
             
             InitStyles();
             
+            // Handle dragging
+            HandleDragging();
+            
             if (_waitingForKey)
             {
                 DrawKeyBindingDialog();
@@ -241,23 +297,24 @@ namespace KeyOverlay
                 return;
             }
             
-            // Calculate window position
-            float cx = (Screen.width - WindowWidth) / 2;
-            float cy = (Screen.height - WindowHeight) / 2;
+            // Draw main window
+            float cx = _windowX;
+            float cy = _windowY;
             
-            // Draw window background
+            // Window background
             GUI.Box(new Rect(cx, cy, WindowWidth, WindowHeight), "", _windowStyle);
             
-            // Inner padding
-            GUILayout.BeginArea(new Rect(cx + 16, cy + 16, WindowWidth - 32, WindowHeight - 32));
+            // Title bar (draggable)
+            Rect titleRect = new Rect(cx, cy, WindowWidth, TitleBarHeight);
+            GUI.Box(titleRect, "", new GUIStyle { normal = { background = _pixelBorderTex } });
+            GUI.Label(new Rect(cx, cy + 5, WindowWidth, 20), "◄ KEY OVERLAY ►", _titleBarStyle);
             
-            // Header with pixel decoration
-            DrawPixelHeader();
-            GUILayout.Space(Spacing);
+            // Content area
+            GUILayout.BeginArea(new Rect(cx + 16, cy + TitleBarHeight + 8, WindowWidth - 32, WindowHeight - TitleBarHeight - 24));
             
             // Tab buttons
             DrawTabs();
-            GUILayout.Space(Spacing * 2);
+            GUILayout.Space(Spacing);
             
             // Tab content
             switch (_tab)
@@ -272,16 +329,35 @@ namespace KeyOverlay
             GUILayout.EndArea();
         }
         
-        private void DrawPixelHeader()
+        private void HandleDragging()
         {
-            GUILayout.BeginHorizontal();
+            Event e = Event.current;
             
-            // Left decoration
-            GUILayout.Label("◄", _headerStyle, GUILayout.Width(20));
-            GUILayout.Label("KEY OVERLAY", _headerStyle);
-            GUILayout.Label("►", _headerStyle, GUILayout.Width(20));
-            
-            GUILayout.EndHorizontal();
+            if (e.type == EventType.MouseDown && e.button == 0)
+            {
+                Rect titleRect = new Rect(_windowX, _windowY, WindowWidth, TitleBarHeight);
+                if (titleRect.Contains(e.mousePosition))
+                {
+                    _isDragging = true;
+                    _dragOffset = e.mousePosition - new Vector2(_windowX, _windowY);
+                    e.Use();
+                }
+            }
+            else if (e.type == EventType.MouseUp && e.button == 0)
+            {
+                _isDragging = false;
+            }
+            else if (e.type == EventType.MouseDrag && _isDragging)
+            {
+                _windowX = e.mousePosition.x - _dragOffset.x;
+                _windowY = e.mousePosition.y - _dragOffset.y;
+                
+                // Clamp to screen
+                _windowX = Mathf.Clamp(_windowX, 0, Screen.width - WindowWidth);
+                _windowY = Mathf.Clamp(_windowY, 0, Screen.height - WindowHeight);
+                
+                e.Use();
+            }
         }
         
         private void DrawTabs()
@@ -294,14 +370,13 @@ namespace KeyOverlay
             {
                 bool isSelected = (_tab == i);
                 
-                // Highlight selected tab
                 Color prevBg = GUI.backgroundColor;
                 if (isSelected)
                 {
                     GUI.backgroundColor = new Color(1f, 0.85f, 0.4f, 0.3f);
                 }
                 
-                if (GUILayout.Button(tabs[i], _tabButtonStyle, GUILayout.Height(ButtonHeight - 4)))
+                if (GUILayout.Button(tabs[i], _tabButtonStyle, GUILayout.Height(ButtonHeight - 8)))
                 {
                     _tab = i;
                 }
@@ -314,17 +389,19 @@ namespace KeyOverlay
         
         private void DrawGeneralTab()
         {
-            // Toggles with pixel checkbox style
             DrawPixelToggle("Show Keyboard Overlay", () => _config.ShowKeyboard, v => _config.SetShowKeyboard(v));
             DrawPixelToggle("Show Gamepad Overlay", () => _config.ShowGamepad, v => _config.SetShowGamepad(v));
             DrawPixelToggle("Show Combo Stats", () => _config.ShowComboStats, v => _config.SetShowComboStats(v));
             DrawPixelToggle("Show Key Names", () => _config.ShowKeyNames, v => _config.SetShowKeyNames(v));
+            if (_config.ShowKeyNames)
+            {
+                DrawPixelToggle("  Use Icons", () => _config.ShowIconMode, v => _config.SetShowIconMode(v));
+            }
             DrawPixelToggle("Show Movement Keys", () => _config.ShowMovementKeys, v => _config.SetShowMovementKeys(v));
             DrawPixelToggle("Show Action Keys", () => _config.ShowActionKeys, v => _config.SetShowActionKeys(v));
             
-            GUILayout.Space(Spacing * 3);
+            GUILayout.Space(Spacing * 2);
             
-            // Action buttons
             if (GUILayout.Button("[ RESET STATS ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
                 _input?.ResetStats();
@@ -337,29 +414,24 @@ namespace KeyOverlay
             
             bool value = getter();
             
-            // Pixel checkbox box
-            Rect checkRect = GUILayoutUtility.GetRect(20, 20, GUILayout.Width(20));
-            
-            // Draw checkbox background
+            // Checkbox
+            Rect checkRect = GUILayoutUtility.GetRect(22, 22, GUILayout.Width(22));
             GUI.DrawTexture(checkRect, _pixelButtonTex, ScaleMode.StretchToFill, true, 0, Color.white, 0, 0);
             
-            // Draw X if checked
             if (value)
             {
                 GUI.color = PixelHighlight;
-                GUI.Label(new Rect(checkRect.x + 4, checkRect.y + 2, 16, 16), "✓", _labelStyle);
+                GUI.Label(new Rect(checkRect.x + 5, checkRect.y + 2, 16, 16), "✓", _labelStyle);
                 GUI.color = Color.white;
             }
             
-            // Click detection
             if (Event.current.type == EventType.MouseDown && checkRect.Contains(Event.current.mousePosition))
             {
                 setter(!value);
                 Event.current.Use();
             }
             
-            // Label
-            GUILayout.Space(8);
+            GUILayout.Space(6);
             GUILayout.Label(label, _labelStyle);
             
             GUILayout.EndHorizontal();
@@ -368,31 +440,27 @@ namespace KeyOverlay
         
         private void DrawPositionTab()
         {
-            // Panel X
             DrawPixelSlider("Panel X", _config.PanelX, 0f, Screen.width, v => {
                 _config.SetPanelX(v);
                 _ui.RefreshTextures();
             }, "{0:F0}");
             
-            // Panel Y
             DrawPixelSlider("Panel Y", _config.PanelY, 0f, Screen.height, v => {
                 _config.SetPanelY(v);
                 _ui.RefreshTextures();
             }, "{0:F0}");
             
-            // Scale
             DrawPixelSlider("Scale", _config.Scale, 0.5f, 3f, v => {
                 _config.SetScale(v);
                 _ui.RefreshTextures();
             }, "{0:F1}x");
             
-            // Opacity
             DrawPixelSlider("Opacity", _config.Opacity, 0.1f, 1f, v => {
                 _config.SetOpacity(v);
                 _ui.RefreshTextures();
             }, "{0:F1}");
             
-            GUILayout.Space(Spacing * 2);
+            GUILayout.Space(Spacing);
             
             if (GUILayout.Button("[ RESET POSITION ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
@@ -465,14 +533,14 @@ namespace KeyOverlay
             GUILayout.Label("Border Color", _labelStyle);
             DrawColorSliders("border");
             
-            GUILayout.Space(Spacing * 2);
+            GUILayout.Space(Spacing);
             
-            // Color preview box
+            // Color preview
             GUILayout.BeginHorizontal();
             GUILayout.Label("Preview:", _labelStyle, GUILayout.Width(70));
             
-            Rect previewRect = GUILayoutUtility.GetRect(80, 40, GUILayout.Width(80));
-            DrawPreviewBox(previewRect, _config.KeyColorNormal, _config.FillOpacity, _config.BorderColor, _config.BorderOpacity);
+            Rect previewRect = GUILayoutUtility.GetRect(100, 50, GUILayout.Width(100));
+            DrawColorPreview(previewRect);
             
             GUILayout.EndHorizontal();
         }
@@ -499,34 +567,36 @@ namespace KeyOverlay
                 default: return;
             }
             
-            // R
+            float newR = c.r, newG = c.g, newB = c.b;
+            
+            // R slider
             GUILayout.BeginHorizontal();
             GUI.color = new Color(1f, 0.3f, 0.3f);
             GUILayout.Label("R", _labelStyle, GUILayout.Width(20));
             GUI.color = Color.white;
-            float newR = GUILayout.HorizontalSlider(c.r, 0f, 1f, _sliderStyle, _sliderThumbStyle);
+            newR = GUILayout.HorizontalSlider(c.r, 0f, 1f, _sliderStyle, _sliderThumbStyle);
             GUILayout.Label($"{newR:F1}", _smallLabelStyle, GUILayout.Width(30));
             GUILayout.EndHorizontal();
             
-            // G
+            // G slider
             GUILayout.BeginHorizontal();
             GUI.color = new Color(0.3f, 1f, 0.3f);
             GUILayout.Label("G", _labelStyle, GUILayout.Width(20));
             GUI.color = Color.white;
-            float newG = GUILayout.HorizontalSlider(c.g, 0f, 1f, _sliderStyle, _sliderThumbStyle);
+            newG = GUILayout.HorizontalSlider(c.g, 0f, 1f, _sliderStyle, _sliderThumbStyle);
             GUILayout.Label($"{newG:F1}", _smallLabelStyle, GUILayout.Width(30));
             GUILayout.EndHorizontal();
             
-            // B
+            // B slider
             GUILayout.BeginHorizontal();
             GUI.color = new Color(0.3f, 0.5f, 1f);
             GUILayout.Label("B", _labelStyle, GUILayout.Width(20));
             GUI.color = Color.white;
-            float newB = GUILayout.HorizontalSlider(c.b, 0f, 1f, _sliderStyle, _sliderThumbStyle);
+            newB = GUILayout.HorizontalSlider(c.b, 0f, 1f, _sliderStyle, _sliderThumbStyle);
             GUILayout.Label($"{newB:F1}", _smallLabelStyle, GUILayout.Width(30));
             GUILayout.EndHorizontal();
             
-            if (newR != c.r || newG != c.g || newB != c.b)
+            if (Mathf.Abs(newR - c.r) > 0.001f || Mathf.Abs(newG - c.g) > 0.001f || Mathf.Abs(newB - c.b) > 0.001f)
             {
                 setter(new Color(newR, newG, newB));
                 _ui.RefreshTextures();
@@ -535,15 +605,21 @@ namespace KeyOverlay
             GUILayout.Space(4);
         }
         
-        private void DrawPreviewBox(Rect rect, Color fill, float fillAlpha, Color border, float borderAlpha)
+        private void DrawColorPreview(Rect rect)
         {
-            // Border
-            GUI.color = new Color(border.r, border.g, border.b, borderAlpha);
-            GUI.DrawTexture(rect, _pixelThumbTex);
+            // Draw border
+            GUI.color = new Color(_config.BorderColor.r, _config.BorderColor.g, _config.BorderColor.b, _config.BorderOpacity);
+            GUI.DrawTexture(rect, _whiteTexture);
             
-            // Fill
-            GUI.color = new Color(fill.r, fill.g, fill.b, fillAlpha);
-            GUI.DrawTexture(new Rect(rect.x + 3, rect.y + 3, rect.width - 6, rect.height - 6), _pixelSliderTex);
+            // Draw fill
+            Rect innerRect = new Rect(rect.x + 4, rect.y + 4, rect.width - 8, rect.height - 8);
+            GUI.color = new Color(_config.KeyColorNormal.r, _config.KeyColorNormal.g, _config.KeyColorNormal.b, _config.FillOpacity);
+            GUI.DrawTexture(innerRect, _whiteTexture);
+            
+            // Draw pressed indicator
+            Rect pressedRect = new Rect(rect.x + rect.width/2 - 10, rect.y + rect.height/2 - 5, 20, 10);
+            GUI.color = new Color(_config.KeyColorPressed.r, _config.KeyColorPressed.g, _config.KeyColorPressed.b, _config.PressedEffectOpacity);
+            GUI.DrawTexture(pressedRect, _whiteTexture);
             
             GUI.color = Color.white;
         }
@@ -571,7 +647,7 @@ namespace KeyOverlay
                 GUILayout.Space(2);
             }
             
-            GUILayout.Space(Spacing * 2);
+            GUILayout.Space(Spacing);
             
             if (GUILayout.Button("[ RESET TO DEFAULTS ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
@@ -592,13 +668,13 @@ namespace KeyOverlay
             
             GUI.Box(new Rect(cx, cy, 320, 180), "", _windowStyle);
             
-            GUILayout.BeginArea(new Rect(cx + 20, cy + 20, 280, 140));
+            GUILayout.BeginArea(new Rect(cx + 20, cy + 30, 280, 130));
             
             GUILayout.Label("◄ KEY BINDING ►", _headerStyle);
             GUILayout.Space(15);
             
             string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
-            GUILayout.Label($"Press new key for:", _labelStyle);
+            GUILayout.Label("Press new key for:", _labelStyle);
             GUILayout.Label($"[ {keyNames[_currentBindingIndex]} ]", _headerStyle);
             GUILayout.Space(10);
             
@@ -616,7 +692,7 @@ namespace KeyOverlay
             
             GUI.Box(new Rect(cx, cy, 320, 180), "", _windowStyle);
             
-            GUILayout.BeginArea(new Rect(cx + 20, cy + 20, 280, 140));
+            GUILayout.BeginArea(new Rect(cx + 20, cy + 30, 280, 130));
             
             GUILayout.Label("◄ CONFIRM ►", _headerStyle);
             GUILayout.Space(15);

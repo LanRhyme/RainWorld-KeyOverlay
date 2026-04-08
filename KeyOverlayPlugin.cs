@@ -28,6 +28,7 @@ namespace KeyOverlay
         internal ConfigEntry<bool> ConfigShowKeyNames;
         internal ConfigEntry<bool> ConfigShowMovementKeys;
         internal ConfigEntry<bool> ConfigShowActionKeys;
+        internal ConfigEntry<bool> ConfigShowIconMode; // true = icons, false = key names
         
         // Color settings
         internal ConfigEntry<Color> ConfigKeyColorNormal;
@@ -97,6 +98,7 @@ namespace KeyOverlay
             ConfigShowKeyNames = Config.Bind("Features", "ShowKeyNames", true);
             ConfigShowMovementKeys = Config.Bind("Keys", "MovementKeys", true);
             ConfigShowActionKeys = Config.Bind("Keys", "ActionKeys", true);
+            ConfigShowIconMode = Config.Bind("Display", "ShowIconMode", false); // false = key names (W/A/S/D), true = icons (▲▼◄►)
             
             // Color settings - user's custom colors (white theme)
             ConfigKeyColorNormal = Config.Bind("Colors", "KeyColorNormal", new Color(1f, 1f, 1f));
@@ -209,6 +211,77 @@ namespace KeyOverlay
         public bool ShowKeyNames => p?.ConfigShowKeyNames?.Value ?? true;
         public bool ShowMovementKeys => p?.ConfigShowMovementKeys?.Value ?? true;
         public bool ShowActionKeys => p?.ConfigShowActionKeys?.Value ?? true;
+        public bool ShowIconMode => p?.ConfigShowIconMode?.Value ?? true; // true = icons, false = key names
+        
+        // Get display name for a key (returns key binding name or icon)
+        public string GetKeyDisplayName(string keyName)
+        {
+            if (ShowIconMode)
+            {
+                // Return icons
+                switch (keyName)
+                {
+                    case "Up": return "▲";
+                    case "Down": return "▼";
+                    case "Left": return "◄";
+                    case "Right": return "►";
+                    case "Jump": return "●";
+                    case "Throw": return "◆";
+                    case "Grab": return "■";
+                    default: return "?";
+                }
+            }
+            else
+            {
+                // Return actual key binding name
+                KeyCode key = GetKeyCodeForName(keyName);
+                return FormatKeyName(key);
+            }
+        }
+        
+        private KeyCode GetKeyCodeForName(string keyName)
+        {
+            switch (keyName)
+            {
+                case "Up": return KeyUp;
+                case "Down": return KeyDown;
+                case "Left": return KeyLeft;
+                case "Right": return KeyRight;
+                case "Jump": return KeyJump;
+                case "Throw": return KeyThrow;
+                case "Grab": return KeyGrab;
+                default: return KeyCode.None;
+            }
+        }
+        
+        private string FormatKeyName(KeyCode key)
+        {
+            string name = key.ToString();
+            // Format common keys - max 3 characters
+            if (name == "Space") return "SPC";
+            if (name == "LeftShift" || name == "RightShift") return "SFT";
+            if (name == "LeftControl" || name == "RightControl") return "CTL";
+            if (name == "LeftAlt" || name == "RightAlt") return "ALT";
+            if (name.StartsWith("Alpha")) return name.Substring(5); // Alpha1 -> 1
+            if (name == "Return") return "ENT";
+            if (name == "Backspace") return "BSP";
+            if (name == "Tab") return "TAB";
+            if (name == "Escape") return "ESC";
+            if (name == "Insert") return "INS";
+            if (name == "Delete") return "DEL";
+            if (name == "Home") return "HOM";
+            if (name == "End") return "END";
+            if (name == "PageUp") return "PUP";
+            if (name == "PageDown") return "PDN";
+            // Arrow keys - use single character
+            if (name == "UpArrow") return "↑";
+            if (name == "DownArrow") return "↓";
+            if (name == "LeftArrow") return "←";
+            if (name == "RightArrow") return "→";
+            // Limit to 3 chars if longer
+            if (name.Length > 3) name = name.Substring(0, 3);
+            return name; // W, A, S, D, K, L etc.
+        }
         
         // Color properties
         public Color KeyColorNormal => p?.ConfigKeyColorNormal?.Value ?? new Color(1f, 1f, 1f);
@@ -251,6 +324,7 @@ namespace KeyOverlay
         public void SetShowKeyNames(bool v) { if (p?.ConfigShowKeyNames != null) p.ConfigShowKeyNames.Value = v; }
         public void SetShowMovementKeys(bool v) { if (p?.ConfigShowMovementKeys != null) p.ConfigShowMovementKeys.Value = v; }
         public void SetShowActionKeys(bool v) { if (p?.ConfigShowActionKeys != null) p.ConfigShowActionKeys.Value = v; }
+        public void SetShowIconMode(bool v) { if (p?.ConfigShowIconMode != null) p.ConfigShowIconMode.Value = v; }
         
         public void SetBorderOpacity(float v) { if (p?.ConfigBorderOpacity != null) p.ConfigBorderOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
         public void SetFillOpacity(float v) { if (p?.ConfigFillOpacity != null) p.ConfigFillOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
