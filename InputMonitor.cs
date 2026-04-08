@@ -77,7 +77,7 @@ namespace KeyOverlay
                 
                 // Actions: configured key OR common alternatives
                 jump = Input.GetKey(cfg.KeyJump) || Input.GetKey(KeyCode.Space);
-                grab = Input.GetKey(cfg.KeyGrab) || Input.GetKey(KeyCode.LeftShift);
+                grab = Input.GetKey(cfg.KeyGrab) || Input.GetKey(KeyCode.L) || Input.GetKey(KeyCode.LeftShift);
                 throw_ = Input.GetKey(cfg.KeyThrow) || Input.GetKey(KeyCode.C);
             }
 else

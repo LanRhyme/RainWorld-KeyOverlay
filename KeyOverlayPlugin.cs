@@ -3,11 +3,13 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using UnityEngine;
+using HarmonyLib;
 
 namespace KeyOverlay
 {
     /// <summary>
     /// Main BepInEx plugin - Author: LanRhyme
+    /// Steam Workshop ready with Remix menu integration
     /// </summary>
     [BepInPlugin("keyoverlay", "Key Overlay", "1.0.0")]
     [BepInDependency("rwremix", BepInDependency.DependencyFlags.SoftDependency)]
@@ -52,6 +54,7 @@ namespace KeyOverlay
         private KeyOverlayUI _ui;
         private PauseMenuIntegration _pauseMenu;
         private ConfigWrapper _configWrapper;
+        private KeyOverlayRemixMenu _remixMenu;
         private bool _initialized = false;
         
         private void Awake()
@@ -61,9 +64,6 @@ namespace KeyOverlay
             
             Log.LogInfo("[KeyOverlay] Starting...");
             
-            // Find correct namespace for Remix API
-            NamespaceFinder.FindTypes();
-            
             try
             {
                 InitConfig();
@@ -72,8 +72,9 @@ namespace KeyOverlay
                 _ui = new KeyOverlayUI(_configWrapper, _inputMonitor);
                 _pauseMenu = new PauseMenuIntegration(_configWrapper, _ui, _inputMonitor);
                 
-                // Register Remix menu - temporarily disabled until we find correct API
-                // _remixMenu = new KeyOverlayRemixMenu(this, _configWrapper);
+                // Use Harmony to hook OnModsInit for Remix menu registration
+                var harmony = new Harmony("keyoverlay");
+                harmony.PatchAll(typeof(KeyOverlayPlugin).Assembly);
                 
                 _initialized = true;
                 Log.LogInfo("[KeyOverlay] Loaded successfully!");
@@ -133,11 +134,6 @@ namespace KeyOverlay
                         else _pauseMenu.OpenMenu();
                     }
                 }
-                if (Input.GetKeyDown(KeyCode.F2))
-                {
-                    if (ConfigPanelX != null) ConfigPanelX.Value = 200f;
-                    if (ConfigPanelY != null) ConfigPanelY.Value = 100f;
-                }
             }
             catch { }
         }
@@ -157,6 +153,45 @@ namespace KeyOverlay
         {
             try { Config?.Save(); } catch { }
         }
+        
+        internal void RegisterRemixMenu()
+        {
+            if (_remixMenu != null) return;
+            try
+            {
+                _remixMenu = new KeyOverlayRemixMenu(this, _configWrapper);
+                MachineConnector.SetRegisteredOI("keyoverlay", _remixMenu);
+                Log.LogInfo("[KeyOverlay] Remix menu registered");
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"[KeyOverlay] Remix menu registration failed: {ex.Message}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Harmony patch to register Remix menu when mods initialize
+    /// </summary>
+    [HarmonyPatch(typeof(RainWorld), "OnModsInit")]
+    static class RainWorldOnModsInitPatch
+    {
+        static bool _initialized = false;
+        
+        static void Postfix()
+        {
+            if (_initialized) return;
+            _initialized = true;
+            
+            try
+            {
+                KeyOverlayPlugin.Instance?.RegisterRemixMenu();
+            }
+            catch (Exception ex)
+            {
+                KeyOverlayPlugin.Log?.LogWarning($"[KeyOverlay] OnModsInit patch error: {ex.Message}");
+            }
+        }
     }
     
     public class ConfigWrapper
@@ -164,8 +199,8 @@ namespace KeyOverlay
         private KeyOverlayPlugin p;
         public static ConfigWrapper Instance { get; private set; }
         
-        public float PanelX => p?.ConfigPanelX?.Value ?? 200f;
-        public float PanelY => p?.ConfigPanelY?.Value ?? 100f;
+        public float PanelX => p?.ConfigPanelX?.Value ?? 136f;
+        public float PanelY => p?.ConfigPanelY?.Value ?? 666f;
         public float Scale => p?.ConfigScale?.Value ?? 1.0f;
         public float Opacity => p?.ConfigOpacity?.Value ?? 0.8f;
         public bool ShowKeyboard => p?.ConfigShowKeyboard?.Value ?? true;
@@ -176,18 +211,18 @@ namespace KeyOverlay
         public bool ShowActionKeys => p?.ConfigShowActionKeys?.Value ?? true;
         
         // Color properties
-        public Color KeyColorNormal => p?.ConfigKeyColorNormal?.Value ?? new Color(0.2f, 0.2f, 0.25f);
-        public Color KeyColorPressed => p?.ConfigKeyColorPressed?.Value ?? new Color(0.95f, 0.75f, 0.25f);
-        public Color BorderColor => p?.ConfigBorderColor?.Value ?? new Color(0.1f, 0.1f, 0.12f);
-        public float BorderOpacity => p?.ConfigBorderOpacity?.Value ?? 0.9f;
-        public float FillOpacity => p?.ConfigFillOpacity?.Value ?? 0.7f;
-        public float PressedEffectOpacity => p?.ConfigPressedEffectOpacity?.Value ?? 1.0f;
+        public Color KeyColorNormal => p?.ConfigKeyColorNormal?.Value ?? new Color(1f, 1f, 1f);
+        public Color KeyColorPressed => p?.ConfigKeyColorPressed?.Value ?? new Color(1f, 1f, 1f);
+        public Color BorderColor => p?.ConfigBorderColor?.Value ?? new Color(1f, 1f, 1f);
+        public float BorderOpacity => p?.ConfigBorderOpacity?.Value ?? 0.45f;
+        public float FillOpacity => p?.ConfigFillOpacity?.Value ?? 0.1f;
+        public float PressedEffectOpacity => p?.ConfigPressedEffectOpacity?.Value ?? 0.75f;
         
         // Style properties
         public int FontSize => p?.ConfigFontSize?.Value ?? 11;
         public float BorderWidth => p?.ConfigBorderWidth?.Value ?? 1.5f;
         
-        // Key binding properties (returns KeyCode) - user's WASD defaults
+        // Key binding properties (returns KeyCode)
         public KeyCode KeyUp => ParseKeyCode(p?.ConfigKeyUp?.Value, KeyCode.W);
         public KeyCode KeyDown => ParseKeyCode(p?.ConfigKeyDown?.Value, KeyCode.S);
         public KeyCode KeyLeft => ParseKeyCode(p?.ConfigKeyLeft?.Value, KeyCode.A);
@@ -199,22 +234,16 @@ namespace KeyOverlay
         private KeyCode ParseKeyCode(string name, KeyCode defaultKey)
         {
             if (string.IsNullOrEmpty(name)) return defaultKey;
-            if (name.ToLower() == "none") return defaultKey; // Handle "None" explicitly
-            try
-            {
-                return (KeyCode)System.Enum.Parse(typeof(KeyCode), name, true);
-            }
-            catch
-            {
-                return defaultKey;
-            }
+            if (name.ToLower() == "none") return defaultKey;
+            try { return (KeyCode)Enum.Parse(typeof(KeyCode), name, true); }
+            catch { return defaultKey; }
         }
         
         public ConfigWrapper(KeyOverlayPlugin plugin) { p = plugin; Instance = this; }
         
         public void SetPanelX(float v) { if (p?.ConfigPanelX != null) p.ConfigPanelX.Value = v; }
         public void SetPanelY(float v) { if (p?.ConfigPanelY != null) p.ConfigPanelY.Value = v; }
-        public void SetScale(float v) { if (p?.ConfigScale != null) p.ConfigScale.Value = Mathf.Clamp(v, 1f, 3f); }
+        public void SetScale(float v) { if (p?.ConfigScale != null) p.ConfigScale.Value = Mathf.Clamp(v, 0.5f, 3f); }
         public void SetOpacity(float v) { if (p?.ConfigOpacity != null) p.ConfigOpacity.Value = Mathf.Clamp(v, 0.1f, 1f); }
         public void SetShowKeyboard(bool v) { if (p?.ConfigShowKeyboard != null) p.ConfigShowKeyboard.Value = v; }
         public void SetShowGamepad(bool v) { if (p?.ConfigShowGamepad != null) p.ConfigShowGamepad.Value = v; }
@@ -223,19 +252,17 @@ namespace KeyOverlay
         public void SetShowMovementKeys(bool v) { if (p?.ConfigShowMovementKeys != null) p.ConfigShowMovementKeys.Value = v; }
         public void SetShowActionKeys(bool v) { if (p?.ConfigShowActionKeys != null) p.ConfigShowActionKeys.Value = v; }
         
+        public void SetBorderOpacity(float v) { if (p?.ConfigBorderOpacity != null) p.ConfigBorderOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
+        public void SetFillOpacity(float v) { if (p?.ConfigFillOpacity != null) p.ConfigFillOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
+        public void SetPressedEffectOpacity(float v) { if (p?.ConfigPressedEffectOpacity != null) p.ConfigPressedEffectOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
+        public void SetFontSize(int v) { if (p?.ConfigFontSize != null) p.ConfigFontSize.Value = Mathf.Clamp(v, 8, 20); }
+        public void SetBorderWidth(float v) { if (p?.ConfigBorderWidth != null) p.ConfigBorderWidth.Value = Mathf.Clamp(v, 0.5f, 4f); }
+        
         // Color setters
         public void SetKeyColorNormal(Color v) { if (p?.ConfigKeyColorNormal != null) p.ConfigKeyColorNormal.Value = v; }
         public void SetKeyColorPressed(Color v) { if (p?.ConfigKeyColorPressed != null) p.ConfigKeyColorPressed.Value = v; }
         public void SetBorderColor(Color v) { if (p?.ConfigBorderColor != null) p.ConfigBorderColor.Value = v; }
-        public void SetBorderOpacity(float v) { if (p?.ConfigBorderOpacity != null) p.ConfigBorderOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
-        public void SetFillOpacity(float v) { if (p?.ConfigFillOpacity != null) p.ConfigFillOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
-        public void SetPressedEffectOpacity(float v) { if (p?.ConfigPressedEffectOpacity != null) p.ConfigPressedEffectOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
         
-        // Style setters
-        public void SetFontSize(int v) { if (p?.ConfigFontSize != null) p.ConfigFontSize.Value = Mathf.Clamp(v, 8, 20); }
-        public void SetBorderWidth(float v) { if (p?.ConfigBorderWidth != null) p.ConfigBorderWidth.Value = Mathf.Clamp(v, 0.5f, 4f); }
-        
-        // Key binding setters
         public void SetKeyUp(KeyCode v) { if (p?.ConfigKeyUp != null) p.ConfigKeyUp.Value = v.ToString(); }
         public void SetKeyDown(KeyCode v) { if (p?.ConfigKeyDown != null) p.ConfigKeyDown.Value = v.ToString(); }
         public void SetKeyLeft(KeyCode v) { if (p?.ConfigKeyLeft != null) p.ConfigKeyLeft.Value = v.ToString(); }
