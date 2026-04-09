@@ -1,7 +1,7 @@
 {
     "id": "keyoverlay",
     "name": "Key Overlay",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "authors": "LanRhyme",
     "description": "Displays keyboard and gamepad inputs on screen with pixel-art style overlay. Features include draggable panel, customizable scale/opacity/colors, combo statistics, CPS counter, key binding configuration, and F1 settings menu.",
     "requirements": [],

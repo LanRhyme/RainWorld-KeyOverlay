@@ -652,6 +652,20 @@ namespace KeyOverlay
         
         private void DrawKeysTab()
         {
+            // Menu toggle key - first item (most important global setting)
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Localization.Get("Menu Key"), _labelStyle, GUILayout.Width(80));
+            
+            if (GUILayout.Button($"[ {_config.MenuKey} ]", _keyButtonStyle, GUILayout.Height(ButtonHeight - 6)))
+            {
+                _waitingForKey = true;
+                _currentBindingIndex = 0; // Menu Key is index 0
+            }
+            
+            GUILayout.EndHorizontal();
+            GUILayout.Space(Spacing);
+            
+            // Action keys (indices 1-7)
             string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
             KeyCode[] keyCodes = { 
                 _config.KeyUp, _config.KeyDown, _config.KeyLeft, _config.KeyRight, 
@@ -666,7 +680,7 @@ namespace KeyOverlay
                 if (GUILayout.Button($"[ {keyCodes[i]} ]", _keyButtonStyle, GUILayout.Height(ButtonHeight - 6)))
                 {
                     _waitingForKey = true;
-                    _currentBindingIndex = i;
+                    _currentBindingIndex = i + 1; // Action keys start at index 1
                 }
                 
                 GUILayout.EndHorizontal();
@@ -677,6 +691,7 @@ namespace KeyOverlay
             
             if (GUILayout.Button("[ " + Localization.Get("RESET TO DEFAULTS") + " ]", _buttonStyle, GUILayout.Height(ButtonHeight)))
             {
+                _config.SetMenuKey(KeyCode.F1);
                 _config.SetKeyUp(KeyCode.W);
                 _config.SetKeyDown(KeyCode.S);
                 _config.SetKeyLeft(KeyCode.A);
@@ -699,9 +714,10 @@ namespace KeyOverlay
             GUILayout.Label("◄ " + Localization.Get("Keys") + " ►", _headerStyle);
             GUILayout.Space(15);
             
-            string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
+            // Index 0 = Menu Key, indices 1-7 = action keys
+            string[] allKeyNames = { "Menu Key", "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
             GUILayout.Label(Localization.Get("Press any key..."), _labelStyle);
-            GUILayout.Label($"[ {Localization.Get(keyNames[_currentBindingIndex])} ]", _headerStyle);
+            GUILayout.Label($"[ {Localization.Get(allKeyNames[_currentBindingIndex])} ]", _headerStyle);
             GUILayout.Space(10);
             
             GUILayout.Label(Localization.Get("Press any key..."), _smallLabelStyle);
@@ -723,8 +739,9 @@ namespace KeyOverlay
             GUILayout.Label("◄ " + Localization.Get("Keys") + " ►", _headerStyle);
             GUILayout.Space(15);
             
-            string[] keyNames = { "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
-            GUILayout.Label($"{Localization.Get(keyNames[_currentBindingIndex])}:", _labelStyle);
+            // Index 0 = Menu Key, indices 1-7 = action keys
+            string[] allKeyNames = { "Menu Key", "Up", "Down", "Left", "Right", "Jump", "Throw", "Grab" };
+            GUILayout.Label($"{Localization.Get(allKeyNames[_currentBindingIndex])}:", _labelStyle);
             GUILayout.Label($"[ {_pendingKey} ]", _headerStyle);
             GUILayout.Space(15);
             
@@ -777,18 +794,21 @@ namespace KeyOverlay
         {
             switch (index)
             {
-                case 0: _config.SetKeyUp(key); break;
-                case 1: _config.SetKeyDown(key); break;
-                case 2: _config.SetKeyLeft(key); break;
-                case 3: _config.SetKeyRight(key); break;
-                case 4: _config.SetKeyJump(key); break;
-                case 5: _config.SetKeyThrow(key); break;
-                case 6: _config.SetKeyGrab(key); break;
+                case 0: _config.SetMenuKey(key); break; // Menu Key
+                case 1: _config.SetKeyUp(key); break;
+                case 2: _config.SetKeyDown(key); break;
+                case 3: _config.SetKeyLeft(key); break;
+                case 4: _config.SetKeyRight(key); break;
+                case 5: _config.SetKeyJump(key); break;
+                case 6: _config.SetKeyThrow(key); break;
+                case 7: _config.SetKeyGrab(key); break;
             }
         }
         
         public void OpenMenu()
         {
+            // Refresh language when opening menu
+            Localization.Refresh();
             IsMenuActive = true;
             _tab = 0;
         }

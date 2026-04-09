@@ -53,6 +53,9 @@ namespace KeyOverlay
         internal ConfigEntry<string> ConfigKeyThrow;
         internal ConfigEntry<string> ConfigKeyGrab;
         
+        // Menu toggle key (KeyCode name)
+        internal ConfigEntry<string> ConfigMenuKey;
+        
         private InputMonitor _inputMonitor;
         private KeyOverlayUI _ui;
         private PauseMenuIntegration _pauseMenu;
@@ -128,6 +131,9 @@ namespace KeyOverlay
             ConfigKeyJump = Config.Bind("KeyBindings", "Jump", "Space");
             ConfigKeyThrow = Config.Bind("KeyBindings", "Throw", "K");
             ConfigKeyGrab = Config.Bind("KeyBindings", "Grab", "L");
+            
+            // Menu toggle key - configurable in-game
+            ConfigMenuKey = Config.Bind("KeyBindings", "MenuKey", "F1");
         }
         
         private void Update()
@@ -136,7 +142,10 @@ namespace KeyOverlay
             try
             {
                 _inputMonitor?.Update();
-                if (Input.GetKeyDown(KeyCode.F1))
+                
+                // Use configurable menu key instead of hardcoded F1
+                KeyCode menuKey = _configWrapper?.MenuKey ?? KeyCode.F1;
+                if (Input.GetKeyDown(menuKey))
                 {
                     if (_pauseMenu != null)
                     {
@@ -314,6 +323,9 @@ namespace KeyOverlay
         public KeyCode KeyThrow => ParseKeyCode(p?.ConfigKeyThrow?.Value, KeyCode.K);
         public KeyCode KeyGrab => ParseKeyCode(p?.ConfigKeyGrab?.Value, KeyCode.L);
         
+        // Menu toggle key
+        public KeyCode MenuKey => ParseKeyCode(p?.ConfigMenuKey?.Value, KeyCode.F1);
+        
         private KeyCode ParseKeyCode(string name, KeyCode defaultKey)
         {
             if (string.IsNullOrEmpty(name)) return defaultKey;
@@ -363,6 +375,7 @@ namespace KeyOverlay
         public void SetKeyJump(KeyCode v) { if (p?.ConfigKeyJump != null) p.ConfigKeyJump.Value = v.ToString(); }
         public void SetKeyThrow(KeyCode v) { if (p?.ConfigKeyThrow != null) p.ConfigKeyThrow.Value = v.ToString(); }
         public void SetKeyGrab(KeyCode v) { if (p?.ConfigKeyGrab != null) p.ConfigKeyGrab.Value = v.ToString(); }
+        public void SetMenuKey(KeyCode v) { if (p?.ConfigMenuKey != null) p.ConfigMenuKey.Value = v.ToString(); }
         
         public void Save() => p?.Config?.Save();
     }

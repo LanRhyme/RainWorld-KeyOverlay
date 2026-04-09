@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KeyOverlay")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b8fff9a24f37e0cff8d3e5053041164050b08a3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e980afdf095d33f99a13047b44a953b192dc0a27")]
 [assembly: System.Reflection.AssemblyProductAttribute("KeyOverlay")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KeyOverlay")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
