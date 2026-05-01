@@ -31,6 +31,7 @@ namespace KeyOverlay
         internal ConfigEntry<bool> ConfigShowJoystick; // Joystick indicator
         internal ConfigEntry<bool> ConfigShowIconMode; // true = icons, false = key names
         internal ConfigEntry<int> ConfigLanguage; // 0=Auto, 1=English, 2=ChineseSimplified
+        internal ConfigEntry<int> ConfigOverlayStyle; // 0=Classic, 1=Minimalist, 2=Ghost
         
         // Color settings
         internal ConfigEntry<Color> ConfigKeyColorNormal;
@@ -110,6 +111,7 @@ namespace KeyOverlay
             ConfigShowJoystick = Config.Bind("Display", "ShowJoystick", true); // Joystick indicator, default ON
             ConfigShowIconMode = Config.Bind("Display", "ShowIconMode", false); // false = key names (W/A/S/D), true = icons (▲▼◄►)
             ConfigLanguage = Config.Bind("Display", "Language", 0); // 0=Auto, 1=English, 2=ChineseSimplified
+            ConfigOverlayStyle = Config.Bind("Style", "OverlayStyle", 0); // 0=Classic, 1=Minimalist, 2=Ghost
             
             // Color settings - user's custom colors (white theme)
             ConfigKeyColorNormal = Config.Bind("Colors", "KeyColorNormal", new Color(1f, 1f, 1f));
@@ -231,6 +233,7 @@ namespace KeyOverlay
         public bool ShowJoystick => p?.ConfigShowJoystick?.Value ?? true; // Joystick indicator
         public bool ShowIconMode => p?.ConfigShowIconMode?.Value ?? true; // true = icons, false = key names
         public int Language => p?.ConfigLanguage?.Value ?? 0; // 0=Auto, 1=English, 2=ChineseSimplified
+        public int OverlayStyle => p?.ConfigOverlayStyle?.Value ?? 0;
         
         // Get display name for a key (returns key binding name or icon)
         public string GetKeyDisplayName(string keyName)
@@ -356,6 +359,7 @@ namespace KeyOverlay
                 Localization.Initialize((Localization.Language)v);
             }
         }
+        public void SetOverlayStyle(int v) { if (p?.ConfigOverlayStyle != null) p.ConfigOverlayStyle.Value = Mathf.Clamp(v, 0, 2); }
         
         public void SetBorderOpacity(float v) { if (p?.ConfigBorderOpacity != null) p.ConfigBorderOpacity.Value = Mathf.Clamp(v, 0f, 1f); }
         public void SetFillOpacity(float v) { if (p?.ConfigFillOpacity != null) p.ConfigFillOpacity.Value = Mathf.Clamp(v, 0f, 1f); }

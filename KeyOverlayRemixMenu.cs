@@ -56,15 +56,9 @@ namespace KeyOverlay
             var title = new OpLabel(new Vector2(50f, y), new Vector2(400f, 35f), Localization.Get("Remix_Title"), FLabelAlignment.Center);
             title.color = new Color(0.9f, 0.7f, 0.3f);
             _mainTab.AddItems(title);
-            y -= 50f;
+            y -= 80f;
             
-            // Separator
-            var sep1 = new OpLabel(new Vector2(150f, y), new Vector2(200f, 20f), "─────────────────", FLabelAlignment.Center);
-            sep1.color = new Color(0.4f, 0.4f, 0.4f);
-            _mainTab.AddItems(sep1);
-            y -= 35f;
-            
-            // Menu Toggle Key section title
+            // Menu Toggle Key section
             var menuKeyTitle = new OpLabel(new Vector2(50f, y), new Vector2(400f, 25f), Localization.Get("Remix_MenuKeySection"), FLabelAlignment.Center);
             menuKeyTitle.color = new Color(0.8f, 0.8f, 0.8f);
             _mainTab.AddItems(menuKeyTitle);
@@ -83,45 +77,10 @@ namespace KeyOverlay
             _mainTab.AddItems(_menuKeyBtn);
             y -= 40f;
             
-            // Hint label (shows current status)
-            _waitingLabel = new OpLabel(new Vector2(50f, y), new Vector2(400f, 25f), Localization.Get("Remix_DefaultKeyF1"), FLabelAlignment.Center);
+            // Hint label
+            _waitingLabel = new OpLabel(new Vector2(50f, y), new Vector2(400f, 25f), Localization.Get("Remix_InGameConfig"), FLabelAlignment.Center);
             _waitingLabel.color = new Color(0.5f, 0.5f, 0.5f);
             _mainTab.AddItems(_waitingLabel);
-            y -= 50f;
-            
-            // Separator
-            var sep2 = new OpLabel(new Vector2(150f, y), new Vector2(200f, 20f), "─────────────────", FLabelAlignment.Center);
-            sep2.color = new Color(0.4f, 0.4f, 0.4f);
-            _mainTab.AddItems(sep2);
-            y -= 40f;
-            
-            // In-game config hint
-            var inGameHint = new OpLabel(new Vector2(50f, y), new Vector2(400f, 25f), Localization.Get("Remix_InGameConfig"), FLabelAlignment.Center);
-            inGameHint.color = new Color(0.7f, 0.7f, 0.7f);
-            _mainTab.AddItems(inGameHint);
-            y -= 25f;
-            
-            var inGameDesc = new OpLabel(new Vector2(50f, y), new Vector2(400f, 25f), Localization.Get("Remix_ConfigPanelDesc"), FLabelAlignment.Center);
-            inGameDesc.color = new Color(0.5f, 0.5f, 0.5f);
-            _mainTab.AddItems(inGameDesc);
-            y -= 50f;
-            
-            // Separator
-            var sep3 = new OpLabel(new Vector2(150f, y), new Vector2(200f, 20f), "─────────────────", FLabelAlignment.Center);
-            sep3.color = new Color(0.4f, 0.4f, 0.4f);
-            _mainTab.AddItems(sep3);
-            y -= 50f;
-            
-            // Reset All Settings button
-            var resetBtn = new OpSimpleButton(new Vector2(100f, y), new Vector2(300f, 35f), Localization.Get("Remix_ResetAll"));
-            resetBtn.OnClick += (_) => ResetAllSettings();
-            _mainTab.AddItems(resetBtn);
-            y -= 45f;
-            
-            // Reset description
-            var resetDesc = new OpLabel(new Vector2(50f, y), new Vector2(400f, 40f), Localization.Get("Remix_ResetDesc"), FLabelAlignment.Center);
-            resetDesc.color = new Color(0.4f, 0.4f, 0.4f);
-            _mainTab.AddItems(resetDesc);
         }
         
         private void StartKeyBinding()
@@ -249,7 +208,10 @@ namespace KeyOverlay
                 _config.SetShowMovementKeys(true);
                 _config.SetShowActionKeys(true);
                 
-                // Reset style
+                // Reset styles
+                _config.SetOverlayStyle(0); // Classic
+                
+                // Reset style details
                 _config.SetBorderOpacity(0.45f);
                 _config.SetFillOpacity(0.1f);
                 _config.SetPressedEffectOpacity(0.75f);

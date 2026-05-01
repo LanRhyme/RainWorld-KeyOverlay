@@ -124,6 +124,7 @@ namespace KeyOverlay
         private void DrawJoystickIndicator(float cx, float cy, float size, float scale)
         {
             float panelAlpha = _config.Opacity;
+            int style = _config.OverlayStyle;
             
             // Get movement input state (using user's configured key bindings)
             bool up = _input.IsKeyPressed("Up");
@@ -132,15 +133,12 @@ namespace KeyOverlay
             bool right = _input.IsKeyPressed("Right");
             
             // Calculate target joystick position (-1 to 1)
-            // Unity GUI: y=0 at top, y increases downward
-            // So: up -> y decreases (moves toward top), down -> y increases (moves toward bottom)
             Vector2 targetPos = Vector2.zero;
-            if (up) targetPos.y -= 1;  // Move toward top (y decreases)
-            if (down) targetPos.y += 1; // Move toward bottom (y increases)
+            if (up) targetPos.y -= 1;
+            if (down) targetPos.y += 1;
             if (left) targetPos.x -= 1;
             if (right) targetPos.x += 1;
             
-            // Normalize diagonal movement
             if (targetPos.magnitude > 1f)
                 targetPos.Normalize();
             
@@ -149,18 +147,27 @@ namespace KeyOverlay
             
             // Draw outer circle (background)
             float outerRadius = size / 2;
-            float pixelSize = 2 * scale; // Pixel size for pixelated look
             
             Color borderColor = _config.BorderColor;
             float borderAlpha = _config.BorderOpacity * panelAlpha;
+            if (style == 3) borderAlpha = 0; // Ghost
             Color borderCol = new Color(borderColor.r, borderColor.g, borderColor.b, borderAlpha);
             
             Color fillColor = _config.KeyColorNormal;
             float fillAlpha = _config.FillOpacity * panelAlpha;
+            if (style == 2 && !(up || down || left || right)) fillAlpha = 0; // Minimalist
             Color fillCol = new Color(fillColor.r, fillColor.g, fillColor.b, fillAlpha);
             
-            // Draw pixelated outer circle
-            DrawPixelCircle(cx, cy, outerRadius, pixelSize, borderCol, fillCol, true);
+            if (style == 0) // Classic Pixel
+            {
+                float pixelSize = 2 * scale;
+                DrawPixelCircle(cx, cy, outerRadius, pixelSize, borderCol, fillCol, true);
+            }
+            else // Modern/Minimalist/Ghost (Smoother)
+            {
+                // We don't have a circle texture, so we use the DrawPixelCircle but with smaller "pixel" size for smoothness
+                DrawPixelCircle(cx, cy, outerRadius, scale * 0.5f, borderCol, fillCol, true);
+            }
             
             // Draw inner circle (joystick position indicator)
             float innerRadius = size / 5;
@@ -171,10 +178,19 @@ namespace KeyOverlay
             // Inner circle color (highlighted when moving)
             Color innerCol = (up || down || left || right) ? _config.KeyColorPressed : borderColor;
             float innerAlpha = (up || down || left || right) ? _config.PressedEffectOpacity : borderAlpha;
+            if (style == 3 && !(up || down || left || right)) innerAlpha = 0.3f * panelAlpha; // Ghost subtle inner
+            
             Color innerBorderCol = new Color(innerCol.r, innerCol.g, innerCol.b, innerAlpha);
             Color innerFillCol = new Color(innerCol.r, innerCol.g, innerCol.b, innerAlpha * 0.8f);
             
-            DrawPixelCircle(innerCx, innerCy, innerRadius, pixelSize, innerBorderCol, innerFillCol, false);
+            if (style == 0)
+            {
+                DrawPixelCircle(innerCx, innerCy, innerRadius, 2 * scale, innerBorderCol, innerFillCol, false);
+            }
+            else
+            {
+                DrawPixelCircle(innerCx, innerCy, innerRadius, scale * 0.5f, innerBorderCol, innerFillCol, false);
+            }
             
             GUI.color = Color.white;
         }
@@ -251,43 +267,62 @@ namespace KeyOverlay
             bool pressed = state != null && state.IsPressed;
             
             float panelAlpha = _config.Opacity;
+            int style = _config.OverlayStyle; // 0=Classic, 1=Minimalist, 2=Ghost
             
             // Fill color based on pressed state
             Color fillColor = pressed ? _config.KeyColorPressed : _config.KeyColorNormal;
             float fillAlpha = pressed ? _config.PressedEffectOpacity : _config.FillOpacity;
+            
+            // Adjust transparency for styles
+            if (style == 1) // Minimalist
+            {
+                if (!pressed) fillAlpha = 0;
+            }
+            else if (style == 2) // Ghost
+            {
+                fillAlpha *= pressed ? 0.6f : 0.2f;
+            }
+            
             fillAlpha *= panelAlpha;
             
-            // Draw fill first (background)
+            // Draw fill (background)
             if (fillAlpha > 0)
             {
                 GUI.color = new Color(fillColor.r, fillColor.g, fillColor.b, fillAlpha);
                 GUI.DrawTexture(new Rect(x, y, size, size), _whiteTex);
             }
             
-            // Draw border lines (on top of fill)
-            if (borderWidth > 0)
+            // Draw border
+            float effectiveBorderWidth = borderWidth;
+            if (style == 1) effectiveBorderWidth = Mathf.Max(1f, borderWidth * 0.5f); // Thinner for minimalist
+            if (style == 2) effectiveBorderWidth = 0; // No border for ghost
+            
+            if (effectiveBorderWidth > 0)
             {
                 Color borderColor = _config.BorderColor;
                 float borderAlpha = _config.BorderOpacity * panelAlpha;
+                if (style == 1 && !pressed) borderAlpha *= 0.7f; // Dimmer border for minimalist
+                
                 GUI.color = new Color(borderColor.r, borderColor.g, borderColor.b, borderAlpha);
                 
                 // Top border
-                GUI.DrawTexture(new Rect(x, y, size, borderWidth), _whiteTex);
+                GUI.DrawTexture(new Rect(x, y, size, effectiveBorderWidth), _whiteTex);
                 // Bottom border
-                GUI.DrawTexture(new Rect(x, y + size - borderWidth, size, borderWidth), _whiteTex);
+                GUI.DrawTexture(new Rect(x, y + size - effectiveBorderWidth, size, effectiveBorderWidth), _whiteTex);
                 // Left border
-                GUI.DrawTexture(new Rect(x, y, borderWidth, size), _whiteTex);
+                GUI.DrawTexture(new Rect(x, y, effectiveBorderWidth, size), _whiteTex);
                 // Right border
-                GUI.DrawTexture(new Rect(x + size - borderWidth, y, borderWidth, size), _whiteTex);
+                GUI.DrawTexture(new Rect(x + size - effectiveBorderWidth, y, effectiveBorderWidth, size), _whiteTex);
             }
             
             // Icon text
             if (_config.ShowKeyNames)
             {
                 Color textColor = pressed ? new Color(0.1f, 0.1f, 0.1f) : Color.white;
+                if (style >= 1 && fillColor.grayscale < 0.5f) textColor = Color.white;
+                
                 GUI.color = new Color(textColor.r, textColor.g, textColor.b, panelAlpha);
                 
-                // Use built-in label style for pixel icons or key names
                 var iconStyle = new GUIStyle(GUI.skin.label)
                 {
                     fontSize = _config.FontSize,
@@ -295,7 +330,6 @@ namespace KeyOverlay
                     normal = { textColor = GUI.color }
                 };
                 
-                // Get display name (icon or key name based on setting)
                 string displayText = _config.GetKeyDisplayName(keyName);
                 GUI.Label(new Rect(x, y, size, size), displayText, iconStyle);
             }
